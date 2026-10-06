@@ -1,0 +1,11 @@
+# Build artifacts
+/dist/
+/agent-sync
+/agent-sync.exe
+*.test
+*.prof
+/coverage.out
+
+# OS metadata
+.DS_Store
+Thumbs.db
