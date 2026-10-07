@@ -9,6 +9,7 @@ import (
 
 	"agent-sync/internal/apply"
 	"agent-sync/internal/manifest"
+	"agent-sync/internal/modelpref"
 	"agent-sync/internal/planner"
 	"agent-sync/internal/state"
 )
@@ -169,5 +170,128 @@ func TestRecoverRestoresDeletedFile(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(target, "AGENTS.md"))
 	if string(data) != "original" {
 		t.Fatalf("restored = %q", data)
+	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(data)
+}
+
+// TestApplyInterruptedPrefWriteKeepsBaseline covers REC-1: a genuinely
+// interrupted Apply (it persists its journal, then fails while replacing a
+// preference-managed file) must leave the previous preference, receipt and raw
+// baseline on disk, and a later Recover must preserve a post-failure user edit
+// while restoring the file the interrupted run did write.
+func TestApplyInterruptedPrefWriteKeepsBaseline(t *testing.T) {
+	target := t.TempDir()
+	stateDir := filepath.Join(t.TempDir(), "state")
+
+	const plainOld, plainNew = "plain-old", "plain-new"
+	raw := []byte("---\nmodel: upstreamA\n---\nbody\n")
+	local := []byte("---\nmodel: openai/gpt-4\n---\nbody\n")
+	newRaw := []byte("---\nmodel: upstreamB\n---\nbody2\n")
+
+	write(t, filepath.Join(target, "AGENTS.md"), plainOld)
+	write(t, filepath.Join(target, "agents", "a.md"), string(local))
+
+	pref := modelpref.Pref{Mode: modelpref.ModeExplicit, Model: "openai/gpt-4"}
+	if _, rec, err := modelpref.Render(raw, pref); err != nil {
+		t.Fatal(err)
+	} else {
+		pref.Receipt = rec
+	}
+	newRendered, newRec, err := modelpref.Render(newRaw, pref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newPref := pref
+	newPref.Receipt = newRec
+
+	st := state.New("repo", "main")
+	st.Files = map[string]state.FileState{
+		"AGENTS.md":   {Exists: true, Hash: state.Hash([]byte(plainOld))},
+		"agents/a.md": {Exists: true, Hash: state.Hash(raw)},
+	}
+	st.ModelPrefs = map[string]modelpref.Pref{"agents/a.md": pref}
+
+	plan := planner.Plan{Commit: "c2", Entries: []planner.Entry{
+		{
+			Path:    "AGENTS.md",
+			Kind:    planner.KindWrite,
+			Local:   planner.Val{Exists: true, Hash: state.Hash([]byte(plainOld))},
+			Content: []byte(plainNew),
+			Remote:  planner.Val{Exists: true, Hash: state.Hash([]byte(plainNew))},
+		},
+		{
+			Path:    "agents/a.md",
+			Kind:    planner.KindWrite,
+			Local:   planner.Val{Exists: true, Hash: state.Hash(local)},
+			Content: newRendered,
+			RawHash: state.Hash(newRaw),
+			Remote:  planner.Val{Exists: true, Hash: state.Hash(newRaw)},
+			Pref:    &newPref,
+		},
+	}}
+
+	// A read-only destination makes the second atomic replacement fail after
+	// the journal was persisted: the run is interrupted mid-write.
+	agentPath := filepath.Join(target, "agents", "a.md")
+	if err := os.Chmod(agentPath, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(agentPath, 0o644) })
+
+	if err := apply.Apply(context.Background(), target, stateDir, st, plan); err == nil {
+		t.Skip("filesystem permits replacing a read-only file; cannot interrupt the write deterministically here")
+	}
+
+	// The previous preference/receipt and raw baseline must be intact on disk,
+	// with the journal recorded.
+	onDisk, exists, err := state.Load(stateDir)
+	if err != nil || !exists {
+		t.Fatalf("reload after interruption: exists=%v err=%v", exists, err)
+	}
+	if onDisk.Journal == nil {
+		t.Fatal("interrupted apply must leave its journal on disk")
+	}
+	if onDisk.Files["agents/a.md"].Hash != state.Hash(raw) {
+		t.Fatalf("raw baseline advanced despite interruption: %+v", onDisk.Files["agents/a.md"])
+	}
+	if got := onDisk.ModelPrefs["agents/a.md"]; got != pref {
+		t.Fatalf("preference/receipt changed despite interruption: %+v want %+v", got, pref)
+	}
+	if got := readFile(t, filepath.Join(target, "AGENTS.md")); got != plainNew {
+		t.Fatalf("first write should have happened before the failure, got %q", got)
+	}
+
+	// The user repairs the managed file after the failed run.
+	if err := os.Chmod(agentPath, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	write(t, agentPath, "user-edit\n")
+
+	if err := apply.Recover(context.Background(), target, stateDir, onDisk); err != nil {
+		t.Fatalf("Recover: %v", err)
+	}
+	if got := readFile(t, agentPath); got != "user-edit\n" {
+		t.Fatalf("recover overwrote the post-failure user edit: %q", got)
+	}
+	if got := readFile(t, filepath.Join(target, "AGENTS.md")); got != plainOld {
+		t.Fatalf("recover did not restore the prior file: %q", got)
+	}
+	final, _, err := state.Load(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if final.Journal != nil {
+		t.Fatal("journal not cleared after recovery")
+	}
+	if final.ModelPrefs["agents/a.md"] != pref {
+		t.Fatalf("preference changed across recovery: %+v", final.ModelPrefs["agents/a.md"])
 	}
 }

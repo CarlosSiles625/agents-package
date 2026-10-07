@@ -20,6 +20,7 @@ import (
 	"sort"
 
 	"agent-sync/internal/manifest"
+	"agent-sync/internal/modelpref"
 	"agent-sync/internal/pathsafe"
 	"agent-sync/internal/state"
 )
@@ -59,7 +60,17 @@ type Entry struct {
 	Baseline Val
 	Local    Val
 	Remote   Val
-	Content  []byte // remote content for writes
+	Content  []byte // bytes to write (remote raw, or rendered when a preference applies)
+
+	// RawHash is the upstream-raw baseline hash to record for a write. It is
+	// set when the written Content differs from the raw upstream bytes because
+	// of a model preference; when empty the baseline is Hash(Content).
+	RawHash string
+
+	// Pref, when non-nil, is the model preference to store for this path.
+	// ClearPref removes any stored preference instead.
+	Pref      *modelpref.Pref
+	ClearPref bool
 }
 
 // Options configures planning.

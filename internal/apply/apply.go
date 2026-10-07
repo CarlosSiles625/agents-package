@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"agent-sync/internal/modelpref"
 	"agent-sync/internal/planner"
 	"agent-sync/internal/state"
 	"agent-sync/internal/targetfs"
@@ -28,6 +29,7 @@ func Apply(ctx context.Context, target, stateDir string, st *state.State, plan p
 	if st.Journal != nil {
 		return ErrJournalPending
 	}
+	st.Target = state.NormalizeTarget(target)
 	actions := plan.Executable()
 
 	// Revalidate every path before touching anything.
@@ -103,10 +105,17 @@ func Apply(ctx context.Context, target, stateDir string, st *state.State, plan p
 }
 
 func updateFiles(st *state.State, plan planner.Plan) {
+	if st.ModelPrefs == nil {
+		st.ModelPrefs = map[string]modelpref.Pref{}
+	}
 	for _, e := range plan.Entries {
 		switch e.Kind {
 		case planner.KindWrite:
-			st.Files[e.Path] = state.FileState{Exists: true, Hash: state.Hash(e.Content)}
+			hash := e.RawHash
+			if hash == "" {
+				hash = state.Hash(e.Content)
+			}
+			st.Files[e.Path] = state.FileState{Exists: true, Hash: hash}
 		case planner.KindDelete:
 			delete(st.Files, e.Path)
 		case planner.KindAdopt:
@@ -121,6 +130,12 @@ func updateFiles(st *state.State, plan planner.Plan) {
 			} else {
 				delete(st.Files, e.Path)
 			}
+		}
+		switch {
+		case e.ClearPref:
+			delete(st.ModelPrefs, e.Path)
+		case e.Pref != nil:
+			st.ModelPrefs[e.Path] = *e.Pref
 		}
 	}
 }

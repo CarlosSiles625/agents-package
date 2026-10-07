@@ -6,21 +6,32 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"agent-sync/internal/apply"
 	"agent-sync/internal/manifest"
+	"agent-sync/internal/modelpref"
 	"agent-sync/internal/pathsafe"
 	"agent-sync/internal/planner"
 	"agent-sync/internal/source"
 	"agent-sync/internal/state"
 	"agent-sync/internal/targetfs"
+	"agent-sync/internal/userpath"
+)
+
+// addToUserPath and stdinIsTerminal are seams replaced by tests so that no test
+// ever touches the real registry, shell profiles or console.
+var (
+	addToUserPath   = userpath.Add
+	stdinIsTerminal = userpath.StdinIsTerminal
 )
 
 func main() {
@@ -38,6 +49,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return runSync(ctx, args[0], args[1:], stdin, stdout, stderr)
 	case "status":
 		return runStatus(ctx, args[1:], stdout, stderr)
+	case "models":
+		return runModels(ctx, args[1:], stdin, stdout, stderr)
 	case "recover":
 		return runRecover(ctx, args[1:], stdout, stderr)
 	case "help", "-h", "--help":
@@ -57,6 +70,7 @@ Usage:
   agent-sync install [flags]   fetch and apply (first-time friendly)
   agent-sync pull    [flags]   fetch and apply
   agent-sync status  [flags]   show state and the pending plan (no fetch)
+  agent-sync models  <sub>     list/select/set/inherit/reset/status model choices
   agent-sync recover [flags]   roll back a pending transaction
 
 Flags:
@@ -68,6 +82,10 @@ Flags:
   --yes               assume yes for changes (not deletions)
   --allow-delete      permit deletions
   --replace <path>    adopt a differing unmanaged file (repeatable)
+
+Install-only flags:
+  --add-to-path       add the executable's directory to the user PATH (no prompt)
+  --shell bash|zsh    shell to configure the user PATH (Linux only; default: $SHELL)
 `)
 }
 
@@ -80,6 +98,8 @@ type options struct {
 	yes         bool
 	allowDelete bool
 	replace     multiFlag
+	addToPath   bool
+	shell       string
 }
 
 type multiFlag []string
@@ -99,6 +119,31 @@ func newFlags(name string, o *options) *flag.FlagSet {
 	fs.BoolVar(&o.allowDelete, "allow-delete", false, "allow deletions")
 	fs.Var(&o.replace, "replace", "adopt a differing unmanaged file (repeatable)")
 	return fs
+}
+
+// newInstallFlags adds the PATH flags that are valid only for "install"; other
+// commands keep the base flag set so such flags are rejected instead of being
+// silently ignored.
+func newInstallFlags(o *options) *flag.FlagSet {
+	fs := newFlags("install", o)
+	fs.BoolVar(&o.addToPath, "add-to-path", false, "add the executable's directory to the user PATH")
+	fs.StringVar(&o.shell, "shell", "", "shell to configure the user PATH (bash or zsh; Linux only)")
+	return fs
+}
+
+// validateInstallFlags prevalidates install-only flags before any agent file is
+// written.
+func validateInstallFlags(o *options) error {
+	if o.shell == "" {
+		return nil
+	}
+	if runtime.GOOS == "windows" {
+		return fmt.Errorf("--shell is only valid on Linux")
+	}
+	if _, err := userpath.ParseShell(o.shell); err != nil {
+		return err
+	}
+	return nil
 }
 
 func defaultTarget() string {
@@ -123,10 +168,21 @@ func isRemoteRepo(repo string) bool {
 
 func runSync(ctx context.Context, name string, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	o := &options{}
-	fs := newFlags(name, o)
+	var fs *flag.FlagSet
+	if name == "install" {
+		fs = newInstallFlags(o)
+	} else {
+		fs = newFlags(name, o)
+	}
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(stderr, "error:", err)
 		return 2
+	}
+	if name == "install" {
+		if err := validateInstallFlags(o); err != nil {
+			fmt.Fprintln(stderr, "error:", err)
+			return 2
+		}
 	}
 	if o.stateDir == "" {
 		o.stateDir = defaultState()
@@ -168,6 +224,28 @@ func runSync(ctx context.Context, name string, args []string, stdin io.Reader, s
 	if !exists {
 		fmt.Fprintln(stderr, "note: no existing state; treating as a fresh install")
 	}
+	if !o.dryRun {
+		lock, err := state.Acquire(o.stateDir)
+		if err != nil {
+			fmt.Fprintln(stderr, "error:", err)
+			return 1
+		}
+		defer lock.Release()
+		// Reload under the lock so a concurrent writer is never clobbered.
+		st, exists, err = state.Load(o.stateDir)
+		if err != nil {
+			fmt.Fprintln(stderr, "error:", err)
+			return 1
+		}
+		if st.Journal != nil {
+			fmt.Fprintln(stderr, "error:", apply.ErrJournalPending)
+			return 2
+		}
+	}
+	if err := checkTargetIdentity(st, o.target); err != nil {
+		fmt.Fprintln(stderr, "error:", err)
+		return 2
+	}
 
 	repoDir := filepath.Join(o.stateDir, "repo")
 	if o.dryRun {
@@ -205,6 +283,9 @@ func runSync(ctx context.Context, name string, args []string, stdin io.Reader, s
 		return 2
 	}
 	if o.dryRun {
+		if name == "install" {
+			return addPathAfterInstall(o, stdin, stdout, stderr)
+		}
 		return 0
 	}
 	if ds := plan.Deletes(); len(ds) > 0 && !o.allowDelete {
@@ -225,7 +306,117 @@ func runSync(ctx context.Context, name string, args []string, stdin io.Reader, s
 		return 1
 	}
 	fmt.Fprintf(stdout, "done: applied %d change(s) at commit %s\n", len(plan.Executable()), commit)
+	if name == "install" {
+		// The PATH step runs only after the agent files were applied cleanly.
+		// A failure here leaves the verified agent install in place and exits
+		// with a distinct code so the caller can tell the two apart.
+		if code := addPathAfterInstall(o, stdin, stdout, stderr); code != 0 {
+			return code
+		}
+	}
 	return 0
+}
+
+// pathBackupDir is the private, user-owned directory that receives raw backups
+// of any PATH/profile bytes agent-sync changes. It is named explicitly so the
+// location is documented and the original value/type can be restored by hand.
+func pathBackupDir(stateDir string) string {
+	return filepath.Join(stateDir, "path-backups")
+}
+
+// addPathAfterInstall performs the optional PATH installation for "install".
+// It is called only after a successful agent apply (never for pull/status), and
+// a dry-run never writes, backs up or reads the registry through the non-dry
+// path. An explicit --add-to-path authorizes the write without a prompt; without
+// it the action is only offered on a real terminal and is a silent success
+// otherwise. --yes never consents to the PATH change.
+func addPathAfterInstall(o *options, stdin io.Reader, stdout, stderr io.Writer) int {
+	explicit := o.addToPath
+	interactive := stdinIsTerminal()
+
+	if o.dryRun {
+		if !explicit {
+			return 0
+		}
+		dir, err := userpath.ExecutableDir()
+		if err != nil {
+			fmt.Fprintln(stderr, "error:", err)
+			return 1
+		}
+		rep, err := addToUserPath(dir, userpath.Options{Shell: o.shell, DryRun: true})
+		if err != nil {
+			fmt.Fprintln(stderr, "error:", err)
+			return 1
+		}
+		printPathReport(stdout, rep)
+		return 0
+	}
+
+	if !explicit && !interactive {
+		// No terminal to ask and no explicit opt-in: leave PATH untouched and
+		// do not read the registry or any profile.
+		fmt.Fprintln(stdout, "note: PATH unchanged; pass --add-to-path to add the executable's directory")
+		return 0
+	}
+
+	dir, err := userpath.ExecutableDir()
+	if err != nil {
+		fmt.Fprintln(stderr, "error:", err)
+		return 1
+	}
+	rep, aerr := addToUserPath(dir, userpath.Options{
+		Shell:       o.shell,
+		AssumeYes:   explicit,
+		Interactive: interactive,
+		Stdin:       stdin,
+		Stdout:      stdout,
+		BackupDir:   pathBackupDir(o.stateDir),
+	})
+	if aerr != nil {
+		if explicit {
+			fmt.Fprintln(stderr, "error: adding the executable's directory to PATH failed:", aerr)
+			fmt.Fprintln(stderr, "note: the agent files were installed; PATH is unchanged")
+			return 1
+		}
+		fmt.Fprintln(stderr, "warning: adding the executable's directory to PATH failed:", aerr)
+		return 0
+	}
+	printPathReport(stdout, rep)
+	return 0
+}
+
+// printPathReport prints only agent-sync's own generated lines and the file
+// names it changes. It never echoes the surrounding profile or registry
+// content, which may contain unrelated entries or secrets.
+func printPathReport(w io.Writer, rep userpath.Report) {
+	if rep.Dir != "" {
+		fmt.Fprintf(w, "PATH directory: %s\n", rep.Dir)
+	}
+	for _, pv := range rep.Previews {
+		switch {
+		case pv.Already:
+			fmt.Fprintf(w, "  already present in %s\n", pv.Target)
+		case pv.Create:
+			fmt.Fprintf(w, "  create %s\n", pv.Target)
+		default:
+			fmt.Fprintf(w, "  update %s\n", pv.Target)
+		}
+		for _, l := range pv.Added {
+			fmt.Fprintf(w, "    + %s\n", l)
+		}
+		for _, l := range pv.Removed {
+			fmt.Fprintf(w, "    - %s\n", l)
+		}
+	}
+	for _, b := range rep.Backups {
+		fmt.Fprintf(w, "  backup: %s\n", b)
+	}
+	if rep.Skipped {
+		fmt.Fprintln(w, "  skipped")
+	}
+	if rep.Note != "" {
+		fmt.Fprintln(w, rep.Note)
+	}
 }
 
 func buildPlan(ctx context.Context, o *options, m manifest.Manifest, st *state.State, src *source.Source, commit string) (planner.Plan, error) {
@@ -244,12 +435,111 @@ func buildPlan(ctx context.Context, o *options, m manifest.Manifest, st *state.S
 		}
 		replace[p] = true
 	}
-	plan, err := planner.Build(m, st.Files, local, remote, planner.Options{Replace: replace})
+	plan, err := planner.Build(m, st.Files, mergeLocal(local, st), remote, planner.Options{Replace: replace})
 	if err != nil {
+		return planner.Plan{}, err
+	}
+	if err := applyPrefs(st, &plan, remote, local); err != nil {
 		return planner.Plan{}, err
 	}
 	plan.Commit = commit
 	return plan, nil
+}
+
+// mergeLocal returns the local bytes the three-way merge should compare. For a
+// path with a stored model preference the edit agent-sync injected (or removed)
+// is reversed, so the merge runs on edit-free bytes and never mistakes its own
+// model field for a user change. The caller keeps the actual bytes for
+// revalidation and rendering.
+func mergeLocal(local map[string][]byte, st *state.State) map[string][]byte {
+	if len(st.ModelPrefs) == 0 {
+		return local
+	}
+	out := make(map[string][]byte, len(local))
+	for k, v := range local {
+		out[k] = v
+	}
+	for p, pref := range st.ModelPrefs {
+		data, ok := local[p]
+		if !ok {
+			continue
+		}
+		raw, err := modelpref.Undo(data, pref.Receipt)
+		if err != nil {
+			// Fail closed: the model field no longer matches the recorded edit.
+			// mergeLocal cannot return an error, so mark the path with bytes that
+			// can never equal a real hash and force a conflict instead.
+			out[p] = nil
+			continue
+		}
+		out[p] = raw
+	}
+	return out
+}
+
+// applyPrefs renders or clears the stored model preference on the plan. It also
+// keeps Apply's revalidation hash pointing at the real (rendered) local file
+// rather than the edit-free bytes used for the merge decision.
+func applyPrefs(st *state.State, plan *planner.Plan, remote map[string]planner.Remote, local map[string][]byte) error {
+	for i := range plan.Entries {
+		e := &plan.Entries[i]
+		pref, has := st.ModelPrefs[e.Path]
+		if !has {
+			continue
+		}
+		if _, err := modelpref.Undo(local[e.Path], pref.Receipt); err != nil && local[e.Path] != nil {
+			return fmt.Errorf("managed agent %q was edited by hand (the model field no longer matches the stored receipt); refusing to sync: %w", e.Path, err)
+		}
+		if data, ok := local[e.Path]; ok {
+			e.Local = planner.Val{Exists: true, Hash: state.Hash(data)}
+		} else {
+			e.Local = planner.Val{Exists: false}
+		}
+		switch e.Kind {
+		case planner.KindWrite:
+			rm, ok := remote[e.Path]
+			if !ok || !rm.Exists {
+				e.ClearPref = true
+				continue
+			}
+			rendered, rec, err := modelpref.Render(rm.Data, pref)
+			if err != nil {
+				return fmt.Errorf("rendering model preference for %q: %w", e.Path, err)
+			}
+			if data, ok := local[e.Path]; ok && bytes.Equal(data, rendered) {
+				// The file already holds exactly this rendering; keep it. The
+				// receipt from rendering the new remote is valid because the
+				// equality proves the actual file is byte-for-byte what that
+				// rendering produced, and it must describe the advanced raw
+				// baseline. Keeping the previous receipt would undo to the old
+				// upstream body/model and cause a false conflict later.
+				p := pref
+				p.Receipt = rec
+				e.Kind = planner.KindKeep
+				e.Content = nil
+				e.Pref = &p
+				continue
+			}
+			p := pref
+			p.Receipt = rec
+			e.Content = rendered
+			e.RawHash = state.Hash(rm.Data)
+			e.Pref = &p
+		case planner.KindKeep:
+			// Local wins; retain the existing preference, whose receipt already
+			// describes the actual file. Never regenerate it from remote.
+			p := pref
+			e.Pref = &p
+			if fs, ok := st.Files[e.Path]; ok {
+				e.RawHash = fs.Hash
+			}
+		case planner.KindDelete:
+			// The managed file is removed, but the stored preference is kept as
+			// an orphan: if the agent reappears upstream the choice is re-applied
+			// instead of being silently forgotten.
+		}
+	}
+	return nil
 }
 
 func buildRemote(ctx context.Context, src *source.Source, commit string, m manifest.Manifest) (map[string]planner.Remote, error) {
@@ -349,6 +639,10 @@ func runStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		fmt.Fprintln(stderr, "error:", err)
 		return 1
 	}
+	if err := checkTargetIdentity(st, o.target); err != nil {
+		fmt.Fprintln(stderr, "error:", err)
+		return 1
+	}
 	repo := o.repo
 	if repo == "" {
 		repo = st.Repo
@@ -408,6 +702,25 @@ func runRecover(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		o.target = defaultTarget()
 	}
 	st, _, err := state.Load(o.stateDir)
+	if err != nil {
+		fmt.Fprintln(stderr, "error:", err)
+		return 1
+	}
+	if err := checkTargetIdentity(st, o.target); err != nil {
+		fmt.Fprintln(stderr, "error:", err)
+		return 2
+	}
+	if st.Journal == nil {
+		fmt.Fprintln(stdout, "nothing to recover")
+		return 0
+	}
+	lock, err := state.Acquire(o.stateDir)
+	if err != nil {
+		fmt.Fprintln(stderr, "error:", err)
+		return 1
+	}
+	defer lock.Release()
+	st, _, err = state.Load(o.stateDir)
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)
 		return 1

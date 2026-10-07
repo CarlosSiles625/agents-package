@@ -1,18 +1,52 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"agent-sync/internal/state"
 	"agent-sync/internal/testsupport"
+	"agent-sync/internal/userpath"
 )
 
-// e2eRun invokes the CLI entry point in-process.
+// e2eRun invokes the CLI entry point in-process. It replaces the userpath seams
+// with safe, inert defaults so no test ever reads the real console, registry or
+// shell profiles: the environment reports no terminal and any unexpected Add
+// call fails the test instead of touching the host.
 func e2eRun(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
+	e2eSeams(t, false, e2eNoAdd(t))
+	return e2eInvoke(args...)
+}
+
+// e2eNoAdd returns an addToUserPath seam that fails the test if it is ever
+// called, so a test can prove the backend is never reached.
+func e2eNoAdd(t *testing.T) func(string, userpath.Options) (userpath.Report, error) {
+	t.Helper()
+	return func(string, userpath.Options) (userpath.Report, error) {
+		t.Errorf("userpath.Add called unexpectedly in this test")
+		return userpath.Report{}, fmt.Errorf("userpath.Add not allowed in this test")
+	}
+}
+
+// e2eSeams replaces the package-level userpath seams for the duration of the
+// test and restores them via t.Cleanup. The package's tests run serially (no
+// t.Parallel), so swapping these globals is race-free.
+func e2eSeams(t *testing.T, tty bool, add func(string, userpath.Options) (userpath.Report, error)) {
+	t.Helper()
+	prevTTY, prevAdd := stdinIsTerminal, addToUserPath
+	stdinIsTerminal = func() bool { return tty }
+	addToUserPath = add
+	t.Cleanup(func() { stdinIsTerminal, addToUserPath = prevTTY, prevAdd })
+}
+
+// e2eInvoke runs the CLI in-process with empty stdin and captures its output.
+func e2eInvoke(args ...string) (code int, stdout, stderr string) {
 	var out, errOut strings.Builder
 	code = run(args, strings.NewReader(""), &out, &errOut)
 	return code, out.String(), errOut.String()
@@ -397,6 +431,176 @@ func TestE2EKeptLocalChangeDoesNotBecomeBaseline(t *testing.T) {
 	}
 	if got := e2eRead(t, filepath.Join(target, "AGENTS.md")); got != "L\n" {
 		t.Fatalf("local edit overwritten by remote: %q", got)
+	}
+}
+
+// --- V5: install --add-to-path / --shell CLI seam coverage -------------------
+
+// e2ePathInstall creates a fresh one-file remote and runs "install" against it
+// with the supplied userpath seams, returning the exit code, captured output,
+// the target dir and the state dir. Each call gets its own temp repository and
+// state; no real registry, profile or console is touched.
+func e2ePathInstall(t *testing.T, tty bool, add func(string, userpath.Options) (userpath.Report, error), extra ...string) (code int, stdout, stderr, target, stateDir string) {
+	t.Helper()
+	e2eSeams(t, tty, add)
+	remote, _ := e2eRemote(t, map[string]string{"AGENTS.md": "# root\n"})
+	target = filepath.Join(t.TempDir(), "target")
+	stateDir = filepath.Join(t.TempDir(), "state")
+	args := append([]string{"install", "--repo", remote, "--branch", "main",
+		"--target", target, "--state", stateDir}, extra...)
+	code, stdout, stderr = e2eInvoke(args...)
+	return code, stdout, stderr, target, stateDir
+}
+
+// TestE2EInstallPathExplicitAddsWithoutTTY proves --add-to-path authorizes the
+// PATH write with AssumeYes and without a terminal prompt.
+func TestE2EInstallPathExplicitAddsWithoutTTY(t *testing.T) {
+	var got userpath.Options
+	called := false
+	add := func(_ string, o userpath.Options) (userpath.Report, error) {
+		called, got = true, o
+		return userpath.Report{Dir: "X"}, nil
+	}
+	code, _, errOut, target, _ := e2ePathInstall(t, false, add, "--add-to-path", "--yes")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, errOut)
+	}
+	if !called {
+		t.Fatal("addToUserPath was not called for --add-to-path")
+	}
+	if !got.AssumeYes || got.Interactive {
+		t.Fatalf("options = %+v, want AssumeYes=true and Interactive=false", got)
+	}
+	if content := e2eRead(t, filepath.Join(target, "AGENTS.md")); content != "# root\n" {
+		t.Fatalf("agent file not applied: %q", content)
+	}
+}
+
+// TestE2EInstallPathNoFlagNoTTYNoBackend proves that with no --add-to-path and
+// no terminal the run aborts at the apply confirmation and the PATH backend is
+// never reached.
+func TestE2EInstallPathNoFlagNoTTYNoBackend(t *testing.T) {
+	code, out, errOut, target, _ := e2ePathInstall(t, false, e2eNoAdd(t))
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, errOut)
+	}
+	if !strings.Contains(out, "aborted") {
+		t.Fatalf("stdout = %s", out)
+	}
+	if _, err := os.Stat(filepath.Join(target, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("aborted run wrote agent files (err=%v)", err)
+	}
+}
+
+// TestE2EInstallPathYesAloneNoTTYNoBackend proves --yes does not consent to the
+// PATH change: on a non-terminal the step is a silent no-op that never calls the
+// backend, while the agent install still succeeds.
+func TestE2EInstallPathYesAloneNoTTYNoBackend(t *testing.T) {
+	code, out, errOut, target, _ := e2ePathInstall(t, false, e2eNoAdd(t), "--yes")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, errOut)
+	}
+	if !strings.Contains(out, "PATH unchanged") {
+		t.Fatalf("stdout = %s", out)
+	}
+	if content := e2eRead(t, filepath.Join(target, "AGENTS.md")); content != "# root\n" {
+		t.Fatalf("agent files not applied: %q", content)
+	}
+}
+
+// TestE2EInstallPathExplicitFailureKeepsAgents proves an explicit PATH failure
+// exits 1 while leaving the successfully applied agent files in place.
+func TestE2EInstallPathExplicitFailureKeepsAgents(t *testing.T) {
+	add := func(string, userpath.Options) (userpath.Report, error) {
+		return userpath.Report{}, errors.New("backend boom")
+	}
+	code, _, errOut, target, _ := e2ePathInstall(t, false, add, "--add-to-path", "--yes")
+	if code != 1 {
+		t.Fatalf("code = %d, want 1; stderr = %s", code, errOut)
+	}
+	if content := e2eRead(t, filepath.Join(target, "AGENTS.md")); content != "# root\n" {
+		t.Fatalf("agent files were not installed before the PATH failure: %q", content)
+	}
+	if !strings.Contains(errOut, "agent files were installed") {
+		t.Fatalf("stderr should note the agent install survived: %s", errOut)
+	}
+}
+
+// TestE2EInstallPathDryRunNoWrites proves a dry-run passes DryRun=true (and no
+// backup dir) to the backend and creates no state.
+func TestE2EInstallPathDryRunNoWrites(t *testing.T) {
+	var got userpath.Options
+	called := false
+	add := func(_ string, o userpath.Options) (userpath.Report, error) {
+		called, got = true, o
+		return userpath.Report{Dir: "X", Note: "would append"}, nil
+	}
+	code, _, errOut, target, stateDir := e2ePathInstall(t, false, add, "--add-to-path", "--yes", "--dry-run")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, errOut)
+	}
+	if !called || !got.DryRun {
+		t.Fatalf("dry-run must call the backend with DryRun=true, got called=%v opts=%+v", called, got)
+	}
+	if got.BackupDir != "" {
+		t.Fatalf("dry-run must not configure a backup dir, got %q", got.BackupDir)
+	}
+	if _, err := os.Stat(filepath.Join(stateDir, "path-backups")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run created PATH state (err=%v)", err)
+	}
+	if _, err := os.Stat(filepath.Join(target, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run wrote agent files (err=%v)", err)
+	}
+}
+
+// TestE2EInstallPathInteractiveDeclineStillSucceeds proves that when the
+// interactive step declines (backend reports no change) the install still
+// succeeds with the agent files applied.
+func TestE2EInstallPathInteractiveDeclineStillSucceeds(t *testing.T) {
+	var got userpath.Options
+	called := false
+	add := func(_ string, o userpath.Options) (userpath.Report, error) {
+		called, got = true, o
+		return userpath.Report{Skipped: true}, nil
+	}
+	code, _, errOut, target, _ := e2ePathInstall(t, true, add, "--yes")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, errOut)
+	}
+	if !called {
+		t.Fatal("interactive PATH step did not call the backend")
+	}
+	if got.AssumeYes || !got.Interactive {
+		t.Fatalf("options = %+v, want a real prompt (AssumeYes=false, Interactive=true)", got)
+	}
+	if content := e2eRead(t, filepath.Join(target, "AGENTS.md")); content != "# root\n" {
+		t.Fatalf("agent files not applied: %q", content)
+	}
+}
+
+// TestE2EInstallOnlyFlagsRejectedElsewhere proves --add-to-path and --shell are
+// rejected (not silently ignored) outside "install".
+func TestE2EInstallOnlyFlagsRejectedElsewhere(t *testing.T) {
+	if code, _, _ := e2eInvoke("pull", "--add-to-path"); code != 2 {
+		t.Fatalf("pull --add-to-path code = %d, want 2", code)
+	}
+	if code, _, _ := e2eInvoke("status", "--shell", "bash"); code != 2 {
+		t.Fatalf("status --shell code = %d, want 2", code)
+	}
+}
+
+// TestE2EInstallShellRejectedOnWindows proves an explicit --shell is rejected
+// before any agent file is written on Windows.
+func TestE2EInstallShellRejectedOnWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("--shell rejection is Windows-specific (POSIX accepts bash/zsh)")
+	}
+	code, _, errOut, target, _ := e2ePathInstall(t, false, e2eNoAdd(t), "--shell", "bash")
+	if code != 2 {
+		t.Fatalf("code = %d, want 2; stderr = %s", code, errOut)
+	}
+	if _, err := os.Stat(filepath.Join(target, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("--shell rejection still wrote agent files (err=%v)", err)
 	}
 }
 
