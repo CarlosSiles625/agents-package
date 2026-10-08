@@ -80,7 +80,10 @@ skills, MCP y credenciales quedan fuera.
   **se rechaza** (fail-closed); una edición del cuerpo sí se respeta.
 - Al borrar un agente del upstream se elimina el archivo y su entrada de
   baseline, pero la preferencia se conserva como *huérfana* por si el agente
-  reaparece; los renombrados no se detectan.
+  reaparece; los renombrados no se detectan. Por eso, al renombrar un agente
+  (por ejemplo `commit-manager` → `git-manager`) la preferencia antigua queda
+  huérfana y el nombre nuevo **no** la hereda: repite
+  `agent-sync models set <nuevo-agente> <proveedor/modelo>` si quieres conservarla.
 
 ### Catálogo de modelos
 

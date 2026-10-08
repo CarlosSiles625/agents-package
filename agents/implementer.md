@@ -225,7 +225,7 @@ No destructive operation without exact authorization and applicable project perm
 Request approval stating operation, exact targets, reason, impact, and rollback/recovery.
 Do not reset, clean, checkout over work, rebase, amend, delete branches, or rewrite history
 without that approval; shell access or an `ask` response alone is not scope authorization.
-Do not create commits or push; commits belong exclusively to `commit-manager`.
+Do not run any Git mutation (stage, commit, push, branch/worktree, merge, rebase, stash, discard); commits and all Git/GitHub mutations belong exclusively to `git-manager`. You may edit source to resolve a conflict only when the parent explicitly assigns that manual conflict fix; never resolve conflicts by Git mutation and never repair hook failures.
 Shell is permission-gated for scoped implementation and assigned checks, not broad API writes.
 Do not use shell/execute wrappers to bypass denied tools, skills, or database mutation limits.
 Never inspect, print, or dump credentials; keep secrets out of commands, logs, and output.
@@ -262,4 +262,4 @@ Return `DONE`, `BLOCKED`, `PARTIAL`, or `ESCALATE`, at most 300 words.
 Report changed files, assigned validation evidence, acceptance, and exact remaining work/owner.
 `DONE` means this unit is complete, not that verifier-owned integration has passed.
 At step exhaustion, report partial work honestly, including dirty changes and missing evidence.
-Leave changes uncommitted for the parent and `commit-manager`.
+Leave changes uncommitted for the parent and `git-manager`.
