@@ -65,21 +65,19 @@ Express dependencies explicitly.
 
 Use:
 
-- `depends_on: []` for independent tasks,
-- task IDs for required predecessors.
+- `depends_on: []` for independent tasks, or task IDs for required predecessors;
+- `write_scope: [<exclusive paths>]` listing every path the task writes exclusively; `[]` when the task writes nothing;
+- `shared_resources: [<consistent resource IDs>]` for mutually exclusive shared resources, using the same ID across tasks (for example `db:migrations`, `lockfile:pnpm-lock.yaml`, `git:repository`); `[]` when the task shares none.
 
-Mark tasks as parallelizable only when they do not share:
+Parallelism is derived, never declared.
 
-- files,
-- mutable state,
-- interfaces or contracts being changed,
-- migrations,
-- assumptions,
-- ordering constraints.
+Two tasks may run concurrently only when their `write_scope` paths do not overlap — an exact path, a listed directory, or a directory/descendant pair is a conflict — their `shared_resources` are disjoint, their contracts are stable, and neither is an ordering or assumption prerequisite of the other.
 
 When uncertain, keep tasks sequential.
 
 Do not invent parallelism merely to increase concurrency.
+
+If whether two tasks conflict cannot be resolved from the supplied evidence, return `BLOCKED` rather than guessing.
 
 ## Task content
 
@@ -103,7 +101,9 @@ What this task must not change.
 
 ### Dependencies
 
-Required predecessor task IDs, or `None`.
+- `depends_on: [<IDs>]` — predecessor task IDs, or `[]` when none.
+- `write_scope: [<paths>]` — every path this task writes, exclusively owned; `[]` when it writes nothing.
+- `shared_resources: [<IDs>]` — mutually exclusive shared resources, using the same ID across tasks; `[]` when none.
 
 ### Actions
 
@@ -200,8 +200,9 @@ Example:
 
 - Scope:
 - Exclusions:
-- Depends on: None
-- Parallel: No
+- depends_on: []
+- write_scope: [<path>]
+- shared_resources: []
 - Actions:
   - ...
 - Acceptance:
@@ -212,7 +213,18 @@ Example:
 
 ### T2 — <objective>
 
-...
+- Scope:
+- Exclusions:
+- depends_on: [T1]
+- write_scope: [<path>]
+- shared_resources: [<resource-id>]
+- Actions:
+  - ...
+- Acceptance:
+  - ...
+- Validation:
+  - ...
+- Approval: None
 
 If no meaningful decomposition is needed, return:
 

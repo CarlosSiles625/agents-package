@@ -73,6 +73,7 @@ For medium or large work, `task-divider` is mandatory once scope and design are 
 - `task-divider` returns `TASKS` or `SINGLE TASK JUSTIFICADO`; both enable the technical gate.
 - `SINGLE TASK JUSTIFICADO` must justify why decomposition would not help.
 - `BLOCKED` returns the unresolved decision to its owner.
+- Validate the returned plan before executing: every `depends_on` ID exists and the graph is an acyclic DAG; `write_scope` and `shared_resources` are consistent across tasks. Do not reject a dependent for writing a predecessor's scope: dependencies are sequential, so a writer may re-acquire a predecessor's scope after that predecessor finished and its deliverable was accepted; only simultaneous ownership of the same scope is a conflict. Return an inconsistent plan to `task-divider`; do not repair it by guessing.
 - Read-only work is not divided based on length; the gate does not require parallelism.
 
 ## Shared execution contract
@@ -167,9 +168,13 @@ Do not automatically combine `repo-explorer` + `researcher` + `architect` + `tas
 
 ## Parallelism
 
-Never exceed two concurrent implementation writers at any point during execution. Parallelize independent DAG tasks only after contracts are stable, each writer has exclusive file ownership, and shared mutable resources are accounted for. Serialize tasks sharing DB/migrations, lockfiles, generated files, or build directories. Serialize Git/GitHub mutations across the repository and worktrees through `git-manager`; never switch, relocate, or remove a branch or worktree while affected writers are active. A fixed shared contract can let its consumers proceed in parallel. Do not stop a whole group when another ready dependent task can proceed; respect dependencies and concurrency limits.
+Parallelism is derived from the plan, not declared as a flag. A task is eligible to start only when every prerequisite it `depends_on` is finished and its result was evaluated as accepted, delivering the required deliverable; the task holds the authorization it needs; its `write_scope` does not overlap an active writer's `write_scope` (an exact path, a listed directory, or a directory/descendant pair is a conflict; a finished predecessor's scope is free to re-acquire); none of its `shared_resources` is currently held by another active task; and, for a task that writes, a writer slot is free.
 
-For independent subagents, request background execution and rely on completion notifications; do not poll. Continue the same session for a missing piece or correction of the same task when supported. Use worktrees only when their isolation benefit justifies the cost; snapshots are not isolation. Do not promise a native scheduler or measured savings. Use edge-case review only for real state/boundary/concurrency concerns, and security review only for affected boundaries. Route directly by risk/complexity, not through every level.
+Resource exclusion applies to every active task, including read-only tasks with `write_scope: []`: before starting, a task acquires and checks its `shared_resources` IDs and releases them when it finishes, so a `shared_resources` ID held by another active task blocks the start regardless of `write_scope`. Never exceed two concurrent implementation writers at any point during execution; read-only tasks do not consume a writer slot. Serialize tasks sharing a `shared_resources` ID (DB/migrations, lockfiles, generated files, build directories) through that single ID. Parallelize independent DAG tasks only after contracts are stable and each writer has exclusive `write_scope` ownership; a fixed shared contract can let its consumers proceed in parallel. Do not stop a whole group when another ready dependent task can proceed; respect dependencies, conflicts, and the concurrency limit, and do not impose rigid waves. Release a writer's ownership only when that executor has finished.
+
+Serialize Git/GitHub mutations across the repository and worktrees through `git-manager`; never switch, relocate, or remove a branch or worktree while affected writers are active.
+
+For independent subagents, request background execution and rely on completion notifications; do not poll, and do not promise a native scheduler or measured savings. A background launch returning immediately is not completion: evaluate the actual result before unblocking dependents. A `FAIL`, `BLOCKED`, `ESCALATE`, or incomplete result blocks its descendants, not independent branches, and a global `PARTIAL` does not satisfy a missing prerequisite. Continue the same session for a missing piece or correction of the same task when supported. Use worktrees only when their isolation benefit justifies the cost; snapshots are not isolation. Use edge-case review only for real state/boundary/concurrency concerns, and security review only for affected boundaries. Route directly by risk/complexity, not through every level.
 
 ## Retry policy
 
@@ -225,9 +230,13 @@ Validation should be proportional to risk. Assign each check one owner and captu
 
 When implementation checks fail, determine whether the cause is understood. If obvious and within scope, the selected executor may correct it. If the root cause is unclear, use `debugger`; route missing architecture, database design, security, or external API decisions to `architect`, `database-specialist`, `security-reviewer`, or `researcher` respectively. Do not repeatedly send the same failure through unrelated specialists.
 
+A failed, blocked, escalated, or incomplete task blocks its descendants, not independent branches; resolve or re-route it before continuing dependents.
+
 ## Scope expansion
 
 If implementation reveals a dependency outside the approved scope: determine whether the dependency is necessary, do not silently expand the task, and surface the new scope when material. In GUIDED mode, present the expanded scope and wait for approval. In AUTO mode, continue only when the expansion is clearly required, low-risk, consistent with the user's objective, and non-destructive; pause when the expansion materially affects architecture, public contracts, database schema, security, dependencies, user-visible behavior, or destructive operations.
+
+Stop the expansion and re-coordinate before any write outside the approved ownership; a writer must not continue into unowned scope.
 
 ## Specialist result evaluation
 
