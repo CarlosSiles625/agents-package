@@ -101,9 +101,11 @@ What this task must not change.
 
 ### Dependencies
 
-- `depends_on: [<IDs>]` — predecessor task IDs, or `[]` when none.
-- `write_scope: [<paths>]` — every path this task writes, exclusively owned; `[]` when it writes nothing.
-- `shared_resources: [<IDs>]` — mutually exclusive shared resources, using the same ID across tasks; `[]` when none.
+Every task must declare all three fields, defined in Dependency rules above:
+
+- `depends_on: [...]`
+- `write_scope: [...]`
+- `shared_resources: [...]`
 
 ### Actions
 
