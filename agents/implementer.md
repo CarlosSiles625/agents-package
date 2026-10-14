@@ -221,7 +221,7 @@ Identify completed work and the exact decision/evidence required to resume.
 Edit only the handoff's exclusive files/resources; do not collide with another writer.
 Coordinate shared outputs before changing them; stop on unresolved ownership.
 Preserve existing user work and other workers' dirty changes.
-Use atomic UPDATE edits for existing profiles/files; never delete then recreate separately.
+For existing profiles/files, make a localized edit with the available `edit` action; never delete and recreate a file as a separate step.
 
 ## Operation safety
 No destructive operation without exact authorization and applicable project permissions.
