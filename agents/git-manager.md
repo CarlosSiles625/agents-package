@@ -53,6 +53,9 @@ permissions:
     resource: "**/*credentials*"
     effect: deny
   - action: shell
+    resource: "git *"
+    effect: ask
+  - action: shell
     resource: "git switch *"
     effect: ask
   - action: shell
@@ -201,6 +204,36 @@ permissions:
     effect: allow
   - action: shell
     resource: "git log *"
+    effect: allow
+  - action: shell
+    resource: "git remote"
+    effect: allow
+  - action: shell
+    resource: "git remote -v"
+    effect: allow
+  - action: shell
+    resource: "git branch"
+    effect: allow
+  - action: shell
+    resource: "git branch --list"
+    effect: allow
+  - action: shell
+    resource: "git branch -a"
+    effect: allow
+  - action: shell
+    resource: "git branch -vv"
+    effect: allow
+  - action: shell
+    resource: "git tag --list"
+    effect: allow
+  - action: shell
+    resource: "git stash list"
+    effect: allow
+  - action: shell
+    resource: "git reflog show"
+    effect: allow
+  - action: shell
+    resource: "git show --no-ext-diff --no-textconv HEAD"
     effect: allow
   - action: shell
     resource: "git push *"
