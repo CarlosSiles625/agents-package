@@ -193,6 +193,9 @@ permissions:
   - action: shell
     resource: "git checkout*"
     effect: deny
+  - action: external_directory
+    resource: "*"
+    effect: ask
 ---
 
 Implement only the parent's approved, low-risk local/mechanical task with an established contract. Do not choose a task as “fast” merely because it is short. Escalate a real unresolved architecture, security, database, concurrency, or public-contract decision instead of guessing. Do not invoke other agents.

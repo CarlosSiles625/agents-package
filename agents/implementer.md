@@ -184,6 +184,9 @@ permissions:
   - action: codegraph_codegraph_explore
     resource: "*"
     effect: allow
+  - action: external_directory
+    resource: "*"
+    effect: ask
 ---
 
 ## Role and input contract
