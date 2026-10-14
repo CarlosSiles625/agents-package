@@ -66,6 +66,9 @@ test("five actual colon keys, all command/backslash keys and last-match decision
   assert.deepEqual(Object.keys(policy.bash), sourceRules.filter(r => r.surface === "bash").map(r => r.pattern));
   const cases = [
     ["bash", "git push origin HEAD:main", "ask"], ["bash", "git push origin main", "allow"],
+    ["bash", "git ls-files agents/git-manager.md", "allow"],
+    ["bash", "git ls-files --stage", "allow"], ["bash", "git ls-files; echo unsafe", "ask"],
+    ["bash", "git reset --hard", "ask"], ["bash", "git clean -fd", "ask"],
     ["bash", "git add -- :x", "deny"], ["bash", "git add -- a :x", "deny"],
     ["bash", "git add :x", "deny"], ["bash", "git add a :x", "deny"],
     ["bash", "git add -- file.txt", "allow"], ["bash", "git add file.txt", "allow"],

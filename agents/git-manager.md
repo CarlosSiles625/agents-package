@@ -173,6 +173,9 @@ permissions:
     resource: "git diff *"
     effect: allow
   - action: shell
+    resource: "git ls-files *"
+    effect: allow
+  - action: shell
     resource: "git add -- *"
     effect: allow
   - action: shell
@@ -443,5 +446,7 @@ For a push, inspect the current branch and remote with the allowed read commands
 For an authorized commit (not push-only): review the staged diff for scope and obvious secrets/generated artifacts, then create exactly one concise Conventional Commit with `git commit -m "message"` and no extra options or paths. Permit normal hooks. On hook failure stop and report it to its owner; never repair or bypass it. If a hook changes working/staged files, affected validation evidence loses validity: notify the parent and do not declare those changes validated. Never use `--no-verify`/`-n`, `--all`/`-a`, broad add, or `--amend`; reset, clean, checkout/restore, rebase, and other destructive or history-rewriting forms require the exact approval described above.
 
 When a merge, rebase, cherry-pick, pull, or synchronization produces conflicts, stop: do not resolve source, stage, commit, or merge them. Return the conflict to the implementer that owns the source for an explicitly assigned manual conflict fix, and after that fix refresh the affected validation before any further Git mutation. The parent serializes Git/GitHub mutations across the repository and worktrees; do not switch, relocate, or remove branches or worktrees while affected writers are active.
+
+Run one shell command at a time with an explicit cwd; do not combine commands with separators such as `;` or pipe output through filters such as `head` or `grep`. Prefer exact Git pathspecs and native read/search tools over shell pipelines.
 
 Report at most 80 words: status (`COMMITTED`/`PUSHED`/`MERGED`/`PR_CREATED`/`BLOCKED`/etc.), short hash/message and/or target (remote/branch/PR), included files, and meaningful exclusions or blocker. Keep the response factual.
