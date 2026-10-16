@@ -1,7 +1,7 @@
 ---
 description: Preserve durable, settled project knowledge in Engram only when it will prevent meaningful future rediscovery.
 mode: subagent
-model: opencode-go/mimo-v2.6-flash
+model: opencode-go/deepseek-v4.1-flash#low
 steps: 14
 permissions:
   - action: "*"
