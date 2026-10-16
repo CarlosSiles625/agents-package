@@ -119,7 +119,8 @@ Select exactly one implementation lane when code changes are needed:
 For medium/large work, the gate is `TASKS` or `SINGLE TASK JUSTIFICADO`; `NOT_REQUIRED_SMALL` applies only when small work skips the divider.
 
 - `repo-explorer`: code location, ownership, dependencies, or call paths are unknown, or repository structure must be located. Prefer CodeGraph or equivalent structural discovery before broad file reading. Do not use when relevant files/symbols are known, when `debugger` already holds evidence that resolves the root cause, or when a specialist's required scope is known.
-- `debugger`: behavior is incorrect and the root cause is unknown. Use supplied errors, logs, stack traces, failing tests, and execution evidence before requesting more investigation. It may resolve the root cause directly; do not insert `repo-explorer` first when that evidence is sufficient. Do not use it merely to inspect code or validate an already understood fix.
+- `debugger-fast` (optional): use only for a concrete expected/actual symptom with useful repro, test, or log evidence and a bounded component/path without materially competing hypotheses. Route multi-component, concurrent/intermittent, contradictory-evidence, security/data-integrity, or insufficiently bounded cases directly to `debugger`. If cause/fix is clear, route to an implementer rather than either debugger. Fast diagnoses only and never fixes or subdelegates; on budget exhaustion, uncertainty, or material expansion it returns `ESCALATE` with check IDs, commands/cwd/results, discarded hypotheses, and open questions. The orchestrator decides whether Sol (`debugger`) is needed and reuses evidence, repeating checks only for a stated reason.
+- `debugger`: behavior is incorrect and the root cause is unknown, especially where investigation is not fast-bounded. Use supplied errors, logs, stack traces, failing tests, and execution evidence before requesting more investigation. It may resolve the root cause directly; do not insert `repo-explorer` first when that evidence is sufficient. Do not use it merely to inspect code or validate an already understood fix.
 - `researcher`: the answer depends on external documentation, current or version-specific behavior, undocumented/uncertain APIs, or framework/library compatibility. Prefer Context7 and authoritative documentation. Do not research what repository evidence or project memory already establishes.
 - `architect`: meaningful design decisions — module boundaries, architecture, data flow, contracts, scalability, compatibility, cross-cutting behavior, or multiple viable approaches with significant consequences. Not for routine implementation choices.
 - `database-specialist`: meaningful database work — schema design, migrations, SQL correctness, RLS, transactions, locking, concurrency, integrity, query behavior, or meaningful performance decisions. Not merely because a database exists.
@@ -168,7 +169,7 @@ Do not send full conversation history unless genuinely necessary, do not ask spe
 Prefer the shortest valid workflow.
 
 - Small known change → Fast executor.
-- Unknown code location/bug → `repo-explorer`/`debugger` as needed → select executor.
+- Unknown code location/bug → `repo-explorer`/optional `debugger-fast` for bounded symptoms or `debugger` for broader investigation → select executor.
 - External API uncertainty → `researcher` → select executor.
 - Architecture-sensitive or security-sensitive change → relevant specialist → select executor.
 - Defined migration → Database executor; complex database design → `database-specialist` → Database executor.
@@ -241,7 +242,7 @@ Validation should be proportional to risk. Assign each check one owner and captu
 
 ## Handling failures
 
-When implementation checks fail, determine whether the cause is understood. If obvious and within scope, the selected executor may correct it. If the root cause is unclear, use `debugger`; route missing architecture, database design, security, or external API decisions to `architect`, `database-specialist`, `security-reviewer`, or `researcher` respectively. Do not repeatedly send the same failure through unrelated specialists.
+When implementation checks fail, determine whether the cause is understood. If obvious and within scope, the selected executor may correct it. If unclear, choose optional `debugger-fast` only when its bounded-evidence contract fits; otherwise use `debugger`. On fast `ESCALATE`, decide the next route from its evidence and reuse its checks rather than repeating investigation absent a concrete reason. Route missing architecture, database design, security, or external API decisions to `architect`, `database-specialist`, `security-reviewer`, or `researcher` respectively. Do not repeatedly send the same failure through unrelated specialists.
 
 A failed, blocked, escalated, or incomplete task blocks its descendants, not independent branches; resolve or re-route it before continuing dependents.
 

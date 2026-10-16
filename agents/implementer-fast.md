@@ -1,7 +1,7 @@
 ---
 description: Execute low-risk, local mechanical changes under an established contract.
 mode: subagent
-model: openai/gpt-6-luna#medium
+model: opencode-go/gpt-6-luna#medium
 steps: 16
 permissions:
   - action: "*"

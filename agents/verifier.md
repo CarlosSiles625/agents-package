@@ -1,7 +1,7 @@
 ---
 description: Verify assigned acceptance criteria with minimal, nonduplicative checks and explicit evidence/status.
 mode: subagent
-model: openai/gpt-6-luna#low
+model: opencode-go/gpt-6-luna#low
 steps: 24
 permissions:
   - action: "*"

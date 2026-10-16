@@ -1,7 +1,7 @@
 ---
 description: Implement approved database changes and perform only explicitly assigned migration/application checks.
 mode: subagent
-model: openai/gpt-6-luna#high
+model: opencode-go/deepseek-v4.1-flash#max
 steps: 32
 permissions:
   - action: "*"
