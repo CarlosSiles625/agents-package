@@ -262,7 +262,7 @@ func TestPiScopeOptionsAndIsolation(t *testing.T) {
 
 func TestPiParserDeclarationFullSnapshotAndPinnedState(t *testing.T) {
 	paths, err := filepath.Glob("../../agents/*.md")
-	if err != nil || len(paths) != 17 { t.Fatalf("actual source snapshot: %d files, %v", len(paths), err) }
+	if err != nil || len(paths) != 19 { t.Fatalf("actual source snapshot: %d files, %v", len(paths), err) }
 	files := map[string]string{}
 	for _, p := range paths { b, err := os.ReadFile(p); if err != nil { t.Fatal(err) }; files["agents/"+filepath.Base(p)] = string(b) }
 	remote, commit := e2eRemote(t, files)
@@ -280,7 +280,7 @@ func TestPiParserDeclarationFullSnapshotAndPinnedState(t *testing.T) {
 		if c,out,e := e2eRun(t,append(install,"--permission-parser",string(piexport.ParserPatched40V1))...); c != 0 || !strings.Contains(out,"DECLARATION ONLY") { t.Fatalf("patched declaration %d %s %s",c,out,e) }
 		st := e2eState(t,o.stateDir)
 		if st.PermissionParser != string(piexport.ParserPatched40V1) || st.Commit != commit { t.Fatalf("mode identity not stored: %+v",st) }
-		loadable,e := filepath.Glob(filepath.Join(o.target,"agents","*.md")); if e != nil || len(loadable) != 16 { t.Fatalf("loadable %d %v",len(loadable),e) }
+		loadable,e := filepath.Glob(filepath.Join(o.target,"agents","*.md")); if e != nil || len(loadable) != 18 { t.Fatalf("loadable %d %v",len(loadable),e) }
 		if _,e := os.Stat(filepath.Join(o.target,"agents","orchestrator.md")); !os.IsNotExist(e) { t.Fatal("loadable primary") }
 		if e2eRead(t,filepath.Join(o.target,"agent-sync","primary","orchestrator.md")) == "" { t.Fatal("primary missing") }
 		gitAgent := e2eRead(t,filepath.Join(o.target,"agents","git-manager.md"))

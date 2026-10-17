@@ -244,8 +244,8 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(paths) != 17 {
-		t.Fatalf("actual source count %d, want 17", len(paths))
+	if len(paths) != 19 {
+		t.Fatalf("actual source count %d, want 19", len(paths))
 	}
 	files := map[string][]byte{}
 	for _, p := range paths {
@@ -271,7 +271,7 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 			loadable++
 		}
 	}
-	if loadable != 16 {
+	if loadable != 18 {
 		t.Fatalf("loadable count %d", loadable)
 	}
 	if !strings.Contains(string(out["agents/researcher.md"]), "web_search, fetch_content") {
