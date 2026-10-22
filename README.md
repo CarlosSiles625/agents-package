@@ -304,20 +304,26 @@ agent-sync pi status  --scope global
 
 Un snapshot convertible produce subagentes cargables y primary separados.
 
-**Compatibilidad del parser de permisos.** Por defecto (`--permission-parser
-upstream`) el parser YAML de `pi-permission-system@40.2.0` no admite `:` dentro
-de las claves de patrones, ni entre comillas: las cinco reglas de
-`git-manager.md` con `:` no son representables fielmente y el export completo se
-rechaza **antes** de escribir destino/baseline. No se elimina ese agente ni se
-genera un inventario parcial. La alternativa aprobada es `--permission-parser
-patched-40.2.0-v1`, que declara que el usuario **ya aplicó y verificó por
-SHA-256** el parche versionado de este repositorio
+**Rechazo del snapshot actual y parser de permisos.** Por defecto
+(`--permission-parser upstream`) el parser YAML de
+`pi-permission-system@40.2.0` no admite `:` dentro de las claves de patrones, ni
+entre comillas: las cinco reglas de `git-manager.md` con `:` no son
+representables fielmente. Además, `implementer.md`, `implementer-fast.md`,
+`implementer-deep.md` y `database-implementer.md` declaran un default universal
+explícito `*: allow`; el allowlist CSV cerrado de los subagentes Pi no puede
+expresar tools presentes o futuras (MCP incluido), por lo que el export completo
+se rechaza **en ambos modos de parser** y **antes** de escribir
+destino/baseline. No se elimina ni recorta ningún agente, no se enumeran MCP de
+forma heurística y no se genera un inventario parcial. La alternativa aprobada
+es `--permission-parser patched-40.2.0-v1`, que declara que el usuario **ya
+aplicó y verificó por SHA-256** el parche versionado de este repositorio
 (`patches/pi-permission-system/40.2.0/patched-40.2.0-v1.patch`; hashes,
 procedimiento manual y rollback en ese directorio). El CLI **no** instala, aplica
 ni verifica en runtime el parche, y solo en ese modo exporta claves con `:` como
-double-quoted JSON exactas. El modo forma parte del estado/baseline gestionado:
-no mezcles modos y no borres estado para eludir el rechazo de cambio silencioso.
-Un upgrade de `pi-permission-system` invalida el parche y la declaración.
+double-quoted JSON exactas; no convierte un allow universal en un allowlist
+finito. El modo forma parte del estado/baseline gestionado: no mezcles modos y
+no borres estado para eludir el rechazo de cambio silencioso. Un upgrade de
+`pi-permission-system` invalida el parche y la declaración.
 
 Para un snapshot convertible, bajo el directorio Pi efectivo se generan:
 
@@ -412,8 +418,11 @@ perfil. Esto **no es un sandbox** ni aislamiento del sistema operativo.
   no vence denegaciones de tools ni `read:*SKILL.md` o external_directory. Las
   variantes direccionales conservan su orden. Un default source omitido se
   representa explícitamente como el default documentado OpenCode `*:allow`,
-  no como el `ask` Pi; no se importa configuración global OpenCode ni sus reglas
-  implícitas `.env`. Revisa esta diferencia en la política root MANUAL.
+  no como el `ask` Pi, conservando el comportamiento histórico; no se importa
+  configuración global OpenCode ni sus reglas implícitas `.env`. Un `*: allow`
+  **explícito** en un subagente se rechaza de forma atómica: el CSV cerrado no
+  puede expresar tools futuras/MCP y el export no debe perder capacidades ni
+  inventar una allowlist. Revisa esta diferencia en la política root MANUAL.
 - `websearch→web_search`, `webfetch→fetch_content`. Los aliases de recursos
   `opencode_list_mcp_resources→list_mcp_resources` y
   `opencode_read_mcp_resource→read_mcp_resource` requieren **esas tools exactas**
@@ -421,7 +430,9 @@ perfil. Esto **no es un sandbox** ni aislamiento del sistema operativo.
   CodeGraph, Engram y las operaciones Supabase acotadas de la fuente. Nombres o
   recursos sin equivalencia segura fallan claramente, nunca se descartan.
 - Los allowlists CSV admiten tools nativas y MCP exactas/patrones acotados
-  `mcp__server__tool`. Conecta los servidores antes de spawn y usa exposición
+  `mcp__server__tool`; no pueden expresar un allow universal ni tools futuras,
+  por lo que un `*: allow` explícito en la fuente se rechaza antes de generar
+  artefactos. Conecta los servidores antes de spawn y usa exposición
   MCP **direct**, no codemode. Un server ausente no aporta tools. No se instala
   ni configura MCP; el reporte declara estas dependencias sin inventarlas.
   `execute`/codemode no se conceden: no hay bypass genérico a shell. La tool

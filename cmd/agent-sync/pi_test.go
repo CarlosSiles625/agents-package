@@ -128,6 +128,19 @@ func TestPiRejectBeforeTargetWritesAndDryRun(t *testing.T) {
 	if _, e := os.Stat(state.Path(o.stateDir)); !os.IsNotExist(e) {
 		t.Fatal("unsafe conversion wrote baseline")
 	}
+	// An explicit universal allow cannot be represented by the closed Pi
+	// subagent tool list; reject it before writing target or baseline.
+	universal := strings.Replace(piAgent("body\n"), "effect: deny", "effect: allow", 1)
+	testsupport.Commit(t, remote, map[string]string{"agents/good.md": piAgent("good\n"), "agents/bad.md": universal}, nil, "universal allow")
+	if c, _, e := e2eRun(t, append([]string{"pi", "install"}, common...)...); c != 1 || !strings.Contains(e, "universal allow") {
+		t.Fatalf("universal allow %d %s", c, e)
+	}
+	if _, e := os.Stat(o.target); !os.IsNotExist(e) {
+		t.Fatal("universal allow wrote target")
+	}
+	if _, e := os.Stat(state.Path(o.stateDir)); !os.IsNotExist(e) {
+		t.Fatal("universal allow wrote baseline")
+	}
 	testsupport.Commit(t, remote, map[string]string{"agents/bad.md": piAgent("fixed\n")}, nil, "fix fixture")
 	if c, _, e := e2eRun(t, append(append([]string{"pi", "install"}, common...), "--dry-run")...); c != 0 {
 		t.Fatalf("dry run %d %s", c, e)
@@ -265,7 +278,26 @@ func TestPiParserDeclarationFullSnapshotAndPinnedState(t *testing.T) {
 	if err != nil || len(paths) != 19 { t.Fatalf("actual source snapshot: %d files, %v", len(paths), err) }
 	files := map[string]string{}
 	for _, p := range paths { b, err := os.ReadFile(p); if err != nil { t.Fatal(err) }; files["agents/"+filepath.Base(p)] = string(b) }
-	remote, commit := e2eRemote(t, files)
+	// The actual snapshot carries explicit universal allows and must be
+	// rejected atomically by both parser modes without target/state writes.
+	fullRemote, _ := e2eRemote(t, files)
+	fullTarget, fullBase := filepath.Join(t.TempDir(), "target"), filepath.Join(t.TempDir(), "state")
+	for _, mode := range []string{"upstream", string(piexport.ParserPatched40V1)} {
+		args := []string{"pi", "install", "--scope", "project", "--target", fullTarget, "--state", fullBase, "--repo", fullRemote, "--branch", "main", "--yes", "--permission-parser", mode}
+		if c, _, e := e2eRun(t, args...); c != 1 || !strings.Contains(e, "universal allow") {
+			t.Fatalf("%s full snapshot must reject universal allow: %d %s", mode, c, e)
+		}
+		if _, e := os.Stat(filepath.Join(fullTarget, "agents")); !os.IsNotExist(e) { t.Fatalf("%s wrote partial agents", mode) }
+		if _, e := os.Stat(state.Path(fullBase)); !os.IsNotExist(e) { t.Fatalf("%s wrote baseline", mode) }
+	}
+	// Parser-mode lifecycle coverage uses the subset without those four agents.
+	unrepresentable := map[string]bool{
+		"agents/implementer.md": true, "agents/implementer-fast.md": true,
+		"agents/implementer-deep.md": true, "agents/database-implementer.md": true,
+	}
+	subset := map[string]string{}
+	for p, b := range files { if !unrepresentable[p] { subset[p] = b } }
+	remote, commit := e2eRemote(t, subset)
 	for _, scope := range []string{"global", "project"} { t.Run(scope, func(t *testing.T) {
 		root := t.TempDir(); target := filepath.Join(root,"target"); base := filepath.Join(root,"state")
 		o := piOptions(t,scope,target,base)
@@ -273,14 +305,14 @@ func TestPiParserDeclarationFullSnapshotAndPinnedState(t *testing.T) {
 		for _, p := range configs { e2eWrite(t, filepath.Join(o.target,p), "sentinel "+p) }
 		common := []string{"--scope",scope,"--target",target,"--state",base}
 		install := append(append([]string{"pi","install"},common...),"--repo",remote,"--yes")
-		if c,_,e := e2eRun(t,install...); c != 1 || !strings.Contains(e,"first colon") { t.Fatalf("upstream must reject actual snapshot: %d %s",c,e) }
+		if c,_,e := e2eRun(t,install...); c != 1 || !strings.Contains(e,"first colon") { t.Fatalf("upstream must reject parser subset: %d %s",c,e) }
 		if _,e := os.Stat(filepath.Join(o.target,"agents")); !os.IsNotExist(e) { t.Fatal("upstream wrote partial agents") }
 		if _,e := os.Stat(state.Path(o.stateDir)); !os.IsNotExist(e) { t.Fatal("upstream wrote baseline") }
 		patched := append(append([]string{},common...),"--permission-parser",string(piexport.ParserPatched40V1))
 		if c,out,e := e2eRun(t,append(install,"--permission-parser",string(piexport.ParserPatched40V1))...); c != 0 || !strings.Contains(out,"DECLARATION ONLY") { t.Fatalf("patched declaration %d %s %s",c,out,e) }
 		st := e2eState(t,o.stateDir)
 		if st.PermissionParser != string(piexport.ParserPatched40V1) || st.Commit != commit { t.Fatalf("mode identity not stored: %+v",st) }
-		loadable,e := filepath.Glob(filepath.Join(o.target,"agents","*.md")); if e != nil || len(loadable) != 18 { t.Fatalf("loadable %d %v",len(loadable),e) }
+		loadable,e := filepath.Glob(filepath.Join(o.target,"agents","*.md")); if e != nil || len(loadable) != 14 { t.Fatalf("loadable %d %v",len(loadable),e) }
 		if _,e := os.Stat(filepath.Join(o.target,"agents","orchestrator.md")); !os.IsNotExist(e) { t.Fatal("loadable primary") }
 		if e2eRead(t,filepath.Join(o.target,"agent-sync","primary","orchestrator.md")) == "" { t.Fatal("primary missing") }
 		gitAgent := e2eRead(t,filepath.Join(o.target,"agents","git-manager.md"))

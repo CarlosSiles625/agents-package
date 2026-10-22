@@ -239,6 +239,36 @@ func TestModelsLimitsAndPrimaryArtifacts(t *testing.T) {
 	}
 }
 
+func TestExplicitUniversalAllowRejectedAtomically(t *testing.T) {
+	universal := "---\ndescription: universal\nmode: subagent\npermissions:\n  - action: \"*\"\n    resource: \"*\"\n    effect: allow\n  - action: shell\n    resource: \"git push*\"\n    effect: deny\n---\nbody\n"
+	for _, mode := range []ParserMode{ParserUpstream, ParserPatched40V1} {
+		out, e := ConvertWithParser(map[string][]byte{
+			"agents/a-good.md":      []byte(fixtureAgent("subagent", "2")),
+			"agents/z-universal.md": []byte(universal),
+		}, mode)
+		if e == nil || !strings.Contains(e.Error(), "agents/z-universal.md") || !strings.Contains(e.Error(), "universal allow") || out != nil {
+			t.Fatalf("%s: explicit universal allow must reject before any artifact: outputs=%d error=%v", mode, len(out), e)
+		}
+	}
+}
+
+func TestOmittedUniversalDefaultStillConverts(t *testing.T) {
+	src := "---\ndescription: omitted default\nmode: subagent\npermissions:\n  - action: edit\n    resource: \"*\"\n    effect: deny\n---\nbody\n"
+	for _, mode := range []ParserMode{ParserUpstream, ParserPatched40V1} {
+		out, e := ConvertWithParser(map[string][]byte{"agents/a.md": []byte(src)}, mode)
+		if e != nil {
+			t.Fatal(e)
+		}
+		a := string(out["agents/a.md"])
+		if !strings.Contains(a, "  \"*\": \"allow\"\n") {
+			t.Fatalf("%s: omitted default lost its historical explicit allow: %s", mode, a)
+		}
+		if !strings.Contains(string(out["agent-sync/report.md"]), "source omitted the universal default") {
+			t.Fatalf("%s: omitted default note missing", mode)
+		}
+	}
+}
+
 func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 	paths, e := filepath.Glob("../../agents/*.md")
 	if e != nil {
@@ -256,12 +286,39 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 		files["agents/"+filepath.Base(p)] = b
 	}
 	out, e := Convert(files)
-	if e == nil || !strings.Contains(e.Error(), "agents/git-manager.md") || !strings.Contains(e.Error(), "first colon") || out != nil {
-		t.Fatalf("actual snapshot must fail atomically, not lose git-manager policy: outputs=%d error=%v", len(out), e)
+	if e == nil || !strings.Contains(e.Error(), "agents/database-implementer.md") || !strings.Contains(e.Error(), "universal allow") || out != nil {
+		t.Fatalf("actual snapshot must fail atomically on the closed tool list: outputs=%d error=%v", len(out), e)
 	}
-	// Only the explicit compatibility declaration enables the full snapshot.
-	// Upstream above remains atomic fail-closed; no production agent filtering.
-	out, e = ConvertWithParser(files, ParserPatched40V1)
+	// The four implementers now carry an explicit universal allow. The closed
+	// Pi subagent tool list cannot express future/MCP tools, so every parser
+	// mode must reject each of them atomically rather than drop capabilities.
+	for _, name := range []string{"implementer.md", "implementer-fast.md", "implementer-deep.md", "database-implementer.md"} {
+		one := map[string][]byte{"agents/" + name: files["agents/"+name]}
+		for _, mode := range []ParserMode{ParserUpstream, ParserPatched40V1} {
+			if out, e := ConvertWithParser(one, mode); e == nil || !strings.Contains(e.Error(), "universal allow") || out != nil {
+				t.Fatalf("%s in %s must reject explicitly: outputs=%d error=%v", name, mode, len(out), e)
+			}
+		}
+	}
+
+	// Independent parser coverage: the subset without the universal-allow
+	// implementers still exercises the pinned colon-key limitation and its
+	// explicit patched declaration, without production agent filtering.
+	unrepresentable := map[string]bool{
+		"agents/implementer.md": true, "agents/implementer-fast.md": true,
+		"agents/implementer-deep.md": true, "agents/database-implementer.md": true,
+	}
+	subset := map[string][]byte{}
+	for p, b := range files {
+		if !unrepresentable[p] {
+			subset[p] = b
+		}
+	}
+	out, e = Convert(subset)
+	if e == nil || !strings.Contains(e.Error(), "agents/git-manager.md") || !strings.Contains(e.Error(), "first colon") || out != nil {
+		t.Fatalf("subset must fail atomically on the pinned parser, not lose git-manager policy: outputs=%d error=%v", len(out), e)
+	}
+	out, e = ConvertWithParser(subset, ParserPatched40V1)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -271,7 +328,7 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 			loadable++
 		}
 	}
-	if loadable != 18 {
+	if loadable != 14 {
 		t.Fatalf("loadable count %d", loadable)
 	}
 	if !strings.Contains(string(out["agents/researcher.md"]), "web_search, fetch_content") {
@@ -282,9 +339,6 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 	}
 	if !strings.Contains(string(out["agents/database-specialist.md"]), "mcp__supabase*__list_tables") {
 		t.Fatal("bounded supabase tool pattern missing")
-	}
-	if strings.Contains(string(out["agents/implementer.md"]), "edit, write") {
-		t.Fatal("edit admitted write")
 	}
 	for p := range out {
 		if !Manifest().Match(p) {
@@ -298,7 +352,7 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 	if !strings.Contains(string(out["agent-sync/report.md"]), "compatibility: patched-40.2.0-v1") || !strings.Contains(string(out["agent-sync/report.md"]), "DECLARATION ONLY") {
 		t.Fatal("managed report lacks mode/attestation distinction")
 	}
-	t.Log("upstream rejects all 17 atomically; explicit patched declaration exports 16 loadable + primary without dropping keys")
+	t.Log("actual snapshot rejects atomically in both modes; patched declaration exports the 14-file subset without dropping colon keys")
 }
 
 func TestPatchedParserModeKeyRoundTrip(t *testing.T) {

@@ -63,6 +63,13 @@ func ConvertWithParser(files map[string][]byte, mode ParserMode) (map[string][]b
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", f, err)
 		}
+		if a.Mode == "subagent" {
+			for _, r := range a.Rules {
+				if r.Action == "*" && r.Resource == "*" && r.Effect == "allow" {
+					return nil, fmt.Errorf("%s: explicit universal allow (action %q, resource %q) cannot be represented by the closed Pi subagent tool list; refusing instead of dropping future/MCP tools", f, r.Action, r.Resource)
+				}
+			}
+		}
 		name := strings.TrimSuffix(path.Base(f), ".md")
 		if old, ok := names[strings.ToLower(name)]; ok {
 			return nil, fmt.Errorf("duplicate Pi agent name in %q and %q", old, f)

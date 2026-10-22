@@ -6,7 +6,7 @@ steps: 24
 permissions:
   - action: "*"
     resource: "*"
-    effect: deny
+    effect: allow
   - action: read
     resource: "*"
     effect: allow
@@ -225,14 +225,15 @@ For existing profiles/files, make a localized edit with the available `edit` act
 
 ## Operation safety
 No destructive operation without exact authorization and applicable project permissions.
-Request approval stating operation, exact targets, reason, impact, and rollback/recovery.
+Explain the exact operation, exact targets, reason, impact, and rollback/recovery, and obtain
+explicit prior consent for that exact operation. If the effects are uncertain, ask before proceeding.
 Do not reset, clean, checkout over work, rebase, amend, delete branches, or rewrite history
 without that approval; shell access or an `ask` response alone is not scope authorization.
-Do not run any Git mutation (stage, commit, push, branch/worktree, merge, rebase, stash, discard); commits and all Git/GitHub mutations belong exclusively to `git-manager`. You may edit source to resolve a conflict only when the parent explicitly assigns that manual conflict fix; never resolve conflicts by Git mutation and never repair hook failures.
+Do not run any Git mutation (stage, commit, push, branch/worktree, merge, rebase, stash, discard); commits and all Git/GitHub mutations belong exclusively to `git-manager`, including when invoked through MCP. You may edit source to resolve a conflict only when the parent explicitly assigns that manual conflict fix; never resolve conflicts by Git mutation and never repair hook failures.
 Shell is permission-gated for scoped implementation and assigned checks, not broad API writes.
-Do not use shell/execute wrappers to bypass denied tools, skills, or database mutation limits.
+Do not use shell/execute or any wrapper to bypass denied tools or the approval requirements here.
 Never inspect, print, or dump credentials; keep secrets out of commands, logs, and output.
-No grants to database-mutating MCP tools; permissions do not enlarge the delegated scope.
+MCP tools are allowed directly, including servers and tools available now or added later, without a static allowlist; `execute` follows the same grant in the assigned scope. The broad `*/*` allow is a general fallback, not MCP-exclusive, and retains the explicit native exceptions above. Permissions do not enlarge the delegated scope: database-mutating MCP operations remain subject to the existing database-owner approval constraints, and unknown or unprovable mutations require prior consent.
 Before running a script for the first time, inspect its definition/configuration and reuse current evidence; a test/build name does not authorize database mutation, deployment, or destructive effects. Request exact authorization when such impact is necessary. Do not request approval repeatedly for an in-scope command already allowed below.
 
 ## Validation ownership and evidence
@@ -254,7 +255,7 @@ If assigned evidence cannot be obtained, state the exact limitation and remainin
 Use supplied documentation evidence when sufficient/current; do not duplicate lookups.
 Use `context7-mcp` only for directly relevant library/API documentation.
 Use `opencode` only for OpenCode tasks; skill permission is not automatic invocation.
-Read-only execute access is limited to the exact Context7 and Codegraph tools permitted above.
+Use `execute` to call permitted MCP tools directly, including tools available now or added later; do not use it as a shell or permission-bypass wrapper, and do not impose a static MCP allowlist.
 Use Codegraph first when the relevant project is indexed; do not create an index yourself.
 Do not invent skill IDs or enable find-skills/report by default.
 Do not read skill files through another tool to bypass skill permissions.
