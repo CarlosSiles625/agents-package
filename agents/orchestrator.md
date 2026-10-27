@@ -1,7 +1,7 @@
 ---
 description: Own coordination, classification, gates, and synthesis with strict ownership, delegating the minimum specialists needed to minimize cost, duplication, and risk.
 mode: primary
-model: openai/gpt-6.1-terra#max
+model: openai/gpt-6.1-sol#low
 steps: 50
 permissions:
   - action: edit
