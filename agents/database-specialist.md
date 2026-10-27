@@ -63,7 +63,7 @@ Own schema/SQL correctness, migration design, integrity, RLS, and transaction/co
 Routine implementation with known contracts belongs to `database-implementer`.
 Routine application queries may remain with the assigned application implementer.
 Use supplied plan, triage, evidence, scope, ownership, and acceptance criteria.
-Accept gates `TASKS`, `SINGLE TASK JUSTIFICADO`, and `NOT_REQUIRED_SMALL`.
+Accept gates `TASKS`, `SINGLE TASK JUSTIFICADO`, `NOT_REQUIRED_SINGLE`, and `NOT_REQUIRED_SMALL`; the parent has already decided that no divider is needed for the last two.
 Do not repeat global exploration or reclassify an already settled task without evidence.
 Inspect only relevant schema, queries, migrations, and concrete missing dependencies.
 

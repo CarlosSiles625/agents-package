@@ -301,12 +301,27 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 		}
 	}
 
+	// The four browser-restricted profiles use Playwright/Chrome DevTools MCP
+	// action names that have no evidence-backed Pi mapping. No new mapping is
+	// invented: each profile must reject atomically in both parser modes.
+	for _, name := range []string{"debugger.md", "debugger-fast.md", "verifier.md", "general-purpose.md"} {
+		one := map[string][]byte{"agents/" + name: files["agents/"+name]}
+		for _, mode := range []ParserMode{ParserUpstream, ParserPatched40V1} {
+			if out, e := ConvertWithParser(one, mode); e == nil || !strings.Contains(e.Error(), name) || !strings.Contains(e.Error(), "no evidence-backed permission mapping") || !strings.Contains(e.Error(), "playwright_*") || out != nil {
+				t.Fatalf("%s in %s must reject its browser mapping atomically: outputs=%d error=%v", name, mode, len(out), e)
+			}
+		}
+	}
+
 	// Independent parser coverage: the subset without the universal-allow
-	// implementers still exercises the pinned colon-key limitation and its
-	// explicit patched declaration, without production agent filtering.
+	// implementers and the unmappable browser profiles still exercises the
+	// pinned colon-key limitation and its explicit patched declaration, without
+	// production agent filtering.
 	unrepresentable := map[string]bool{
 		"agents/implementer.md": true, "agents/implementer-fast.md": true,
 		"agents/implementer-deep.md": true, "agents/database-implementer.md": true,
+		"agents/debugger.md": true, "agents/debugger-fast.md": true,
+		"agents/verifier.md": true, "agents/general-purpose.md": true,
 	}
 	subset := map[string][]byte{}
 	for p, b := range files {
@@ -328,8 +343,14 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 			loadable++
 		}
 	}
-	if loadable != 14 {
-		t.Fatalf("loadable count %d", loadable)
+	// Derive the real parser-subset count instead of hard-coding a stale one:
+	// 19 sources minus 8 unrepresentable subagents minus the non-loadable primary.
+	wantLoadable := len(files) - len(unrepresentable) - 1
+	if wantLoadable != 10 {
+		t.Fatalf("derived loadable count %d, want 10", wantLoadable)
+	}
+	if loadable != wantLoadable {
+		t.Fatalf("loadable count %d, want %d", loadable, wantLoadable)
 	}
 	if !strings.Contains(string(out["agents/researcher.md"]), "web_search, fetch_content") {
 		t.Fatal("researcher extension tools not admitted")
@@ -352,7 +373,7 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 	if !strings.Contains(string(out["agent-sync/report.md"]), "compatibility: patched-40.2.0-v1") || !strings.Contains(string(out["agent-sync/report.md"]), "DECLARATION ONLY") {
 		t.Fatal("managed report lacks mode/attestation distinction")
 	}
-	t.Log("actual snapshot rejects atomically in both modes; patched declaration exports the 14-file subset without dropping colon keys")
+	t.Log("actual snapshot rejects atomically in both modes; patched declaration exports the 10-file subset without dropping colon keys")
 }
 
 func TestPatchedParserModeKeyRoundTrip(t *testing.T) {

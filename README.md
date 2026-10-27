@@ -259,6 +259,37 @@ contrario, en `HOME`. No recargues ni ejecutes automáticamente archivos de inic
 del usuario: abre una nueva sesión Zsh y comprueba `command -v agent-sync`. Si se
 define `ZDOTDIR`, debe ser una ruta absoluta.
 
+## Permisos de navegador (OpenCode)
+
+Los perfiles `debugger`, `debugger-fast`, `verifier` y `general-purpose` admiten
+navegador **solo en OpenCode**, que es el runtime prioritario. Playwright y Chrome
+DevTools se exponen como 25 acciones MCP exactas que quedan en `ask`; en esos
+cuatro perfiles `playwright_*` y `chrome-devtools_*` se deniegan por defecto, de
+modo que una acción no listada (evaluación de código/JS,
+`playwright_browser_run_code_unsafe`, detalles de red o cookies) sigue en `deny` y
+no se convierte en un `ask` implícito. Los cuatro perfiles de implementación
+(`implementer*` y `database-implementer`) conservan su default universal y piden
+`ask` para cualquier acción browser desconocida.
+`execute` está permitido en `debugger`, `debugger-fast` y `verifier`, y en `ask` en
+`general-purpose`; solo sirve para llamadas MCP exactas, y `fetch` sigue disponible
+dentro de `execute`, nunca como shell ni para eludir una tool denegada.
+`debugger`, `debugger-fast` y `verifier` mantienen su regla previa de CodeGraph en
+`allow`; los fallbacks anteriores no cambian.
+
+Un `ask` —y el prompt que muestra OpenCode— es una puerta de política, **no un
+sandbox**: no aísla el host, no demuestra que la operación sea segura y no limita lo
+que una tool permitida puede hacer internamente. `allow always` persiste la decisión
+en la configuración de OpenCode y puede alcanzar acciones o sesiones posteriores;
+para una operación concreta elige **una vez** y no reutilices esa aprobación para
+otra operación, página o destino.
+
+Toda operación peligrosa requiere consentimiento **individual y exacto**: operación
+y argumentos, página/URL/destino, motivo, impacto esperado, alcance y
+recuperación/rollback. Cada operación posterior requiere su propio consentimiento;
+una autorización de alcance o un `allow once` no se extienden a operaciones
+relacionadas. No se promete ni se verificó comportamiento runtime: los permisos, el
+forwarding de asks y la persistencia de aprobaciones dependen del host.
+
 ## Pi: exportación aislada y recuperable
 
 El flujo OpenCode anterior permanece igual. Pi usa un **baseline convertido y
@@ -314,7 +345,18 @@ explícito `*: allow`; el allowlist CSV cerrado de los subagentes Pi no puede
 expresar tools presentes o futuras (MCP incluido), por lo que el export completo
 se rechaza **en ambos modos de parser** y **antes** de escribir
 destino/baseline. No se elimina ni recorta ningún agente, no se enumeran MCP de
-forma heurística y no se genera un inventario parcial. La alternativa aprobada
+forma heurística y no se genera un inventario parcial.
+
+Además, los cuatro perfiles browser (`debugger`, `debugger-fast`, `verifier` y
+`general-purpose`) usan acciones MCP sin mapping Pi respaldado por evidencia
+(`playwright_*`, `chrome-devtools_*`); cada uno se rechaza de forma atómica en
+ambos modos. El snapshot completo ya fallaba antes por el `*: allow` de los
+implementers, así que estos perfiles nuevos tampoco son exportables a Pi y no se
+inventan mappings para conseguirlo. El subconjunto de parser que sí convierte
+(10 subagentes cargables) excluye ambos grupos solo en las pruebas; no se filtra
+ni recorta la fuente en producción.
+
+La alternativa aprobada
 es `--permission-parser patched-40.2.0-v1`, que declara que el usuario **ya
 aplicó y verificó por SHA-256** el parche versionado de este repositorio
 (`patches/pi-permission-system/40.2.0/patched-40.2.0-v1.patch`; hashes,

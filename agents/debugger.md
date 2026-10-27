@@ -160,9 +160,92 @@ permissions:
   - action: read
     resource: "*SKILL.md"
     effect: deny
+  - action: "playwright_*"
+    resource: "*"
+    effect: deny
+  - action: "chrome-devtools_*"
+    resource: "*"
+    effect: deny
+  - action: playwright_browser_navigate
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_snapshot
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_wait_for
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_take_screenshot
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_click
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_fill_form
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_type
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_press_key
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_tabs
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_console_messages
+    resource: "*"
+    effect: ask
+  - action: playwright_browser_network_requests
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_list_pages
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_new_page
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_select_page
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_navigate_page
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_take_snapshot
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_wait_for
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_take_screenshot
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_click
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_fill
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_fill_form
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_press_key
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_get_css_styles
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_list_console_messages
+    resource: "*"
+    effect: ask
+  - action: chrome-devtools_list_network_requests
+    resource: "*"
+    effect: ask
 ---
 
-Diagnose, do not fix. Start from supplied errors, checks, files, and recent changes; distinguish expected behavior, symptom, immediate failure, and evidenced root cause. Reuse existing evidence. Read only relevant code. Run only an assigned or root-cause-required safe, targeted command that materially discriminates the leading hypothesis, requesting that exact command and cwd when needed. No shell chaining, wrappers that bypass denied Git operations, or SKILL.md reads. Use execute only for the exact permitted read-only MCP tool. Do not repeat equivalent experiments; each retry must test a distinct unresolved hypothesis or be explicitly required. No suite/full build by default, source edits, Git writes, dependency changes, destructive operations, arbitrary MCP mutation, or delegation.
+Diagnose, do not fix. Start from supplied errors, checks, files, and recent changes; distinguish expected behavior, symptom, immediate failure, and evidenced root cause. Reuse existing evidence. Read only relevant code. Run only an assigned or root-cause-required safe, targeted command that materially discriminates the leading hypothesis, requesting that exact command and cwd when needed. No shell chaining, wrappers that bypass denied Git operations, or SKILL.md reads. Use execute only for exact MCP tool calls, never as a shell or to run host code. Do not repeat equivalent experiments; each retry must test a distinct unresolved hypothesis or be explicitly required. No suite/full build by default, source edits, Git writes, dependency changes, destructive operations, arbitrary MCP mutation, or delegation.
+
+Browser MCP (`playwright`, `chrome-devtools`) is available only when the assignment requires it, and only for the tools permitted here; a browser is not intrinsically read-only. Before any browser operation the handoff did not preauthorize, stop and return `NEEDS_AUTHORIZATION` with the exact operation and arguments, exact destination (URL/page/target), reason, expected impact, and rollback/recovery when applicable; resume the same session only after exact consent for that single operation, and request exact consent again for each further dangerous operation — a runtime `allow once` neither replaces that scope authorization nor extends to later or related operations. A runtime `ask` prompt is an additional gate, not proof the action is safe, and these instructions are not an isolation boundary. Do not use authenticated sessions, cookies, tokens, or secrets by default, and never inspect, print, or dump credentials. Any capture written outside the project worktree (Location) needs prior consent for that exact external path, even when it never leaves the machine; uploading or publishing it needs separate specific permission. Never use `fetch`, shell, or any wrapper to evade a permission; unlisted browser operations (cookie or network detail, evaluation, `playwright_browser_run_code_unsafe`) remain denied.
 
 Permissions do not expand task scope. Before running a script for the first time, inspect its definition/configuration and reuse current evidence; a test/build name does not authorize database mutation, deployment, or destructive effects. Request exact authorization when such impact is necessary. Do not request approval repeatedly for an in-scope command already allowed below.
 
