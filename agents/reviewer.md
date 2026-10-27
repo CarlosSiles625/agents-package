@@ -1,7 +1,7 @@
 ---
 description: Statically review the supplied scoped diff and immediate consumers for concrete correctness and regression defects.
 mode: subagent
-model: openai/gpt-6.1-sol#low
+model: openai/gpt-6.1-terra#max
 steps: 18
 permissions:
   - action: "*"

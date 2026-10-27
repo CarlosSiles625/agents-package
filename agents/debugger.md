@@ -1,7 +1,7 @@
 ---
 description: Diagnose an assigned software failure with the smallest discriminating, evidence-based investigation.
 mode: subagent
-model: openai/gpt-6.1-sol#medium
+model: openai/gpt-6.1-terra#max
 steps: 24
 permissions:
   - action: "*"

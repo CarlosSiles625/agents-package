@@ -1,7 +1,7 @@
 ---
 description: Implement difficult algorithmic or concurrency-sensitive changes when the design is already approved.
 mode: subagent
-model: openai/gpt-6.1-sol#high
+model: openai/gpt-6.1-terra#max
 steps: 32
 permissions:
   - action: "*"
