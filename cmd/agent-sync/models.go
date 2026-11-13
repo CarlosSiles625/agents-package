@@ -303,7 +303,7 @@ func mutateModels(ctx context.Context, action, agentArg, ref string, o *options,
 	if o.target == "" {
 		o.target = defaultTarget()
 	}
-	m := manifest.Default()
+	m := manifest.Agents()
 	rel, err := resolveAgentPath(agentArg, m)
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)
@@ -451,8 +451,9 @@ func runModelsSelect(ctx context.Context, args []string, stdin io.Reader, stdout
 		return 2
 	}
 	agents := make([]string, 0, len(st.Files))
+	agentScope := manifest.Agents()
 	for p, f := range st.Files {
-		if f.Exists {
+		if f.Exists && agentScope.Match(p) {
 			agents = append(agents, p)
 		}
 	}
@@ -464,7 +465,7 @@ func runModelsSelect(ctx context.Context, args []string, stdin io.Reader, stdout
 	r := bufio.NewReader(stdin)
 	var agent string
 	if len(pos) == 1 {
-		rel, rerr := resolveAgentPath(pos[0], manifest.Default())
+		rel, rerr := resolveAgentPath(pos[0], manifest.Agents())
 		if rerr != nil {
 			fmt.Fprintln(stderr, "error:", rerr)
 			return 2
@@ -479,7 +480,7 @@ func runModelsSelect(ctx context.Context, args []string, stdin io.Reader, stdout
 		if err != nil {
 			return 1
 		}
-		rel, rerr := resolveAgentPath(line, manifest.Default())
+		rel, rerr := resolveAgentPath(line, manifest.Agents())
 		if rerr != nil {
 			fmt.Fprintln(stderr, "error:", rerr)
 			return 2

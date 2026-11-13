@@ -471,3 +471,45 @@ func TestOnlyManifestScopeManaged(t *testing.T) {
 		t.Fatal("models set accepted an out-of-scope path")
 	}
 }
+
+// TestSkillsManagedButNotModelTargets: skills/<id>/SKILL.md is synced and
+// recorded, local-only skills are never touched, deeper skill files stay out
+// of scope, and the models command never treats a skill as an agent.
+func TestSkillsManagedButNotModelTargets(t *testing.T) {
+	remote, _ := e2eRemote(t, map[string]string{
+		"agents/a.md":             "a\n",
+		"skills/orch/SKILL.md":    "---\ndescription: d\n---\nskill\n",
+		"skills/orch/ref/more.md": "nested\n",
+	})
+	target := filepath.Join(t.TempDir(), "target")
+	stateDir := filepath.Join(t.TempDir(), "state")
+	e2eWrite(t, filepath.Join(target, "skills", "mine", "SKILL.md"), "user skill\n")
+
+	if code, _, errOut := e2eRun(t, "install", "--repo", remote, "--branch", "main",
+		"--target", target, "--state", stateDir, "--yes"); code != 0 {
+		t.Fatalf("install code = %d, stderr = %s", code, errOut)
+	}
+	if got := e2eRead(t, filepath.Join(target, "skills", "orch", "SKILL.md")); got != "---\ndescription: d\n---\nskill\n" {
+		t.Fatalf("managed skill = %q", got)
+	}
+	if got := e2eRead(t, filepath.Join(target, "skills", "mine", "SKILL.md")); got != "user skill\n" {
+		t.Fatalf("local-only skill was modified: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(target, "skills", "orch", "ref", "more.md")); !os.IsNotExist(err) {
+		t.Fatal("out-of-scope nested skill file was written")
+	}
+	files := e2eState(t, stateDir).Files
+	if _, ok := files["skills/orch/SKILL.md"]; !ok {
+		t.Fatalf("managed skill not recorded in state: %+v", files)
+	}
+	if _, ok := files["skills/mine/SKILL.md"]; ok {
+		t.Fatal("local-only skill must not be adopted into state")
+	}
+	if code, _, _ := e2eRun(t, "models", "set", "--offline", "--target", target, "--state", stateDir,
+		"skills/orch/SKILL.md", "openai/gpt-4"); code == 0 {
+		t.Fatal("models set accepted a skill path")
+	}
+	if code, out, _ := e2eRunIn(t, "\n", "models", "select", "--target", target, "--state", stateDir); strings.Contains(out, "skills/") {
+		t.Fatalf("models select listed a skill (code %d): %s", code, out)
+	}
+}

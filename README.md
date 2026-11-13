@@ -1,15 +1,16 @@
 # agent-sync
 
-Sincroniza las instrucciones globales de agentes de OpenCode (`AGENTS.md` y
-`agents/**/*.md`) desde un repositorio git hacia un directorio destino, de
+Sincroniza las instrucciones globales de agentes de OpenCode (`AGENTS.md`,
+`agents/**/*.md` y `skills/<id>/SKILL.md`) desde un repositorio git hacia un directorio destino, de
 forma segura y recuperable.
 
 ## Principios
 
 - **Alcance explícito y versionado.** Solo se gestionan los archivos que
-  coinciden con el manifiesto incorporado: el `AGENTS.md` de la raíz y los
-  Markdown bajo `agents/`. Todo lo demás (skills, `opencode.json`, MCP,
-  credenciales, ...) queda **fuera** y nunca se toca.
+  coinciden con el manifiesto incorporado: el `AGENTS.md` de la raíz, los
+  Markdown bajo `agents/` y las skills de un nivel (`skills/<id>/SKILL.md`).
+  Todo lo demás (otros archivos de skills, skills locales no gestionadas,
+  `opencode.json`, MCP, credenciales, ...) queda **fuera** y nunca se toca.
 - **Nunca sobrescribe cambios ajenos.** Antes de escribir, compara el estado
   base (B), el destino local (L) y el commit remoto (R). Si L y R divergen del
   baseline, la ejecución se **aborta por completo** sin escribir nada. El
@@ -70,8 +71,9 @@ Una preferencia fija el campo `model` de un agente **sin tocar el resto del
 archivo**. La edición se registra como un *recibo* reversible en el directorio de
 estado (fuera del baseline crudo del upstream) y se vuelve a aplicar en cada
 `pull`, de modo que la elección sobrevive a las actualizaciones del cuerpo. Solo
-se pueden cambiar agentes gestionados (presentes en el baseline); `opencode.json`,
-skills, MCP y credenciales quedan fuera.
+se pueden cambiar agentes gestionados (presentes en el baseline, bajo `agents/`);
+las skills gestionadas nunca son objetivo de `models`, y `opencode.json`, MCP y
+credenciales quedan fuera.
 
 - `set <agente> <prov/modelo[#variante]>` inyecta o reemplaza el campo `model`.
 - `inherit <agente>` elimina el `model` heredado del upstream.
@@ -417,6 +419,10 @@ Para un snapshot convertible, bajo el directorio Pi efectivo se generan:
 | `agent-sync/policies/orchestrator.json` | política root para revisión/aplicación **MANUAL** |
 | `agent-sync/web-search.global.manual.json` | perfil web **MANUAL y solo global**, también exportado con scope project |
 | `agent-sync/report.md` | conversiones, capacidades externas pendientes y pasos manuales |
+
+Las skills (`skills/<id>/SKILL.md`) **no** se exportan a Pi. El prompt primary del
+orchestrator las referencia, así que en Pi esas secciones quedan como resumen
+inline; si las necesitas allí, cópialas a mano al directorio de skills de Pi.
 
 No se selecciona un primary automáticamente ni se fabrica un tag
 `active_agent`. Desde el directorio Pi que contiene `agent-sync/`, después de

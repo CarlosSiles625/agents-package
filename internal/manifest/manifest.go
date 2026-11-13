@@ -1,8 +1,8 @@
 // Package manifest defines the versioned, explicit allow-list of files that
 // agent-sync is permitted to manage. The default manifest includes only the
-// top-level AGENTS.md and markdown files under agents/. Everything else
-// (skills, MCP configuration, opencode.json, credentials, ...) is explicitly
-// excluded.
+// top-level AGENTS.md, markdown files under agents/, and one-level skills
+// (skills/<id>/SKILL.md). Everything else (other skill files, MCP
+// configuration, opencode.json, credentials, ...) is explicitly excluded.
 package manifest
 
 import (
@@ -23,11 +23,21 @@ type Manifest struct {
 	Include []string `json:"include"`
 }
 
-// Default returns the built-in manifest: AGENTS.md and agents/**/*.md only.
+// Default returns the built-in manifest: AGENTS.md, agents/**/*.md and
+// skills/<id>/SKILL.md only.
 func Default() Manifest {
 	return Manifest{
 		Version: CurrentVersion,
-		Include: []string{"AGENTS.md", "agents/**/*.md"},
+		Include: []string{"AGENTS.md", "agents/**/*.md", "skills/*/SKILL.md"},
+	}
+}
+
+// Agents returns the subset of the default manifest that holds agent
+// definitions (agents/**/*.md). Model preferences apply only to these paths.
+func Agents() Manifest {
+	return Manifest{
+		Version: CurrentVersion,
+		Include: []string{"agents/**/*.md"},
 	}
 }
 

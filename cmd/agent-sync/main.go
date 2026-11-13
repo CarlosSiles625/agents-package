@@ -1,5 +1,5 @@
 // Command agent-sync installs and updates the global OpenCode agent
-// instructions (AGENTS.md and agents/**/*.md) from a git repository into the
+// instructions (AGENTS.md, agents/**/*.md and skills/<id>/SKILL.md) from a git repository into the
 // destination directory, keeping a recoverable baseline and never touching
 // files it does not own.
 package main
