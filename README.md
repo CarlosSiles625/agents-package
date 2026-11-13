@@ -283,6 +283,23 @@ implementer. Si el límite semanal se agota antes de tiempo, recorta en este
 orden: `architect` a `opus#low`, escalada de seguridad a `opus#medium`, y
 desactivar la escalada de `database-specialist`.
 
+### Telemetría de tokens
+
+`scripts/agent-telemetry.py` lee en solo lectura la base de datos local de
+OpenCode (`~/.local/share/opencode/opencode.db`) y resume por agente: sesiones,
+pasos por sesión, contexto inicial (prompt + esquemas de tools + handoff),
+contexto máximo y tokens por paso. Úsalo para medir antes y después de cada
+cambio de prompts, permisos o configuración, con la misma ventana temporal:
+
+```sh
+python3 -I scripts/agent-telemetry.py --days 7 --min-sessions 5
+python3 -I scripts/agent-telemetry.py --since 2026-11-13 --by-model --agent implementer
+python3 -I scripts/agent-telemetry.py --days 7 --json
+```
+
+La línea base previa a los cambios de compactación y `tool_output` está en
+`telemetry/baseline-2026-11-13.txt`. Cambia una variable cada vez y compara.
+
 ## Permisos de navegador (OpenCode)
 
 Los perfiles `debugger`, `debugger-fast`, `debugger-deep`, `verifier` y `general-purpose` admiten

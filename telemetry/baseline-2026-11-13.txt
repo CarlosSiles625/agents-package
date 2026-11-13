@@ -1,0 +1,27 @@
+# Línea base de telemetría (antes de compactación/tool_output del 2026-11-13)
+# python3 -I scripts/agent-telemetry.py --until 2026-11-13 --min-sessions 5
+
+agent                   sess steps50   p90    ctx0  ctxMax50      p90  ctx/step out/step reas/step   total ctx
+orchestrator              67      14   132   20603     33998   178773    114113      256        91 387,415,097
+implementer              138      36    48   24269     85251   131650     71269      334       386 348,224,116
+database-implementer      53      32    65   29573    121553   214736    142880      625       916 342,198,342
+build                     19      36   398    5599     37002   302948    192755      177       168 335,394,285
+implementer-fast         118      16    31   16885     50584    96420     49234      229       290  91,675,224
+debugger                  34       8    39    8919     29138    79513     88998      106        31  66,571,079
+repo-explorer            123      10    17    5466     41831    78805     32946      251       192  48,068,269
+verifier                 112      10    43    9038     24890    46433     22174       76        55  41,843,861
+general                   10      49   143   20739    101606   156925     60948      235       189  28,097,468
+general-purpose           36      17    32   16405     33064    56515     30533      185       201  21,526,223
+explore                    5      32    85    3710    139638   248217    106822      297       530  17,839,390
+implementer-deep           5      29    47   21849    151838   169783    110748      540       242  13,843,521
+git-manager               58       8    17    5640     11091    45744     19182      142       163  10,301,015
+security-reviewer         54       7    12    6848     31313    66185     25989      126       108  10,135,935
+database-specialist       46       6    13    8796     24230    47763     24234      192        27   7,294,548
+reviewer                  31       5    11    5462     26563    53550     23250       96        11   4,278,125
+architect                 57       4     8    5122     19652    34671     16443      255        98   4,045,121
+debugger-fast              9      10    20   12098     43769    61077     32762      201       579   2,719,249
+memory-curator            40       6     9    6766     14258    22532     11441      208       139   2,597,242
+researcher                13       9    16    3629     33353    59682     21566      178       276   2,458,600
+task-divider              51       2     3    5294      5759    11002      6502     1297      4969     565,752
+
+1082 sessions scanned; total context re-read: 1,787,092,462 tokens
