@@ -169,6 +169,9 @@ permissions:
   - action: subagent
     resource: "*"
     effect: deny
+  - action: "engram_*"
+    resource: "*"
+    effect: deny
   - action: skill
     resource: "*"
     effect: deny
@@ -239,7 +242,7 @@ Do not run any Git mutation (stage, commit, push, branch/worktree, merge, rebase
 Shell is permission-gated for scoped implementation and assigned checks, not broad API writes.
 Do not use shell/execute or any wrapper to bypass denied tools or the approval requirements here.
 Never inspect, print, or dump credentials; keep secrets out of commands, logs, and output.
-MCP tools are allowed directly, including servers and tools available now or added later, without a static allowlist; `execute` follows the same grant in the assigned scope. Exception: every current and future `playwright_*` and `chrome-devtools_*` call is `ask` per action unless a saved approval already covers it; the broad fallback does not bypass that `ask`. The broad `*/*` allow is a general fallback, not MCP-exclusive, and retains the explicit native exceptions above. Permissions do not enlarge the delegated scope: database-mutating MCP operations remain subject to the existing database-owner approval constraints, and unknown or unprovable mutations require prior consent.
+MCP tools are allowed directly, including servers and tools available now or added later, without a static allowlist; `execute` follows the same grant in the assigned scope. Exception: Engram memory tools (`engram_*`) are denied; durable memory belongs to `memory-curator` via the parent. Exception: every current and future `playwright_*` and `chrome-devtools_*` call is `ask` per action unless a saved approval already covers it; the broad fallback does not bypass that `ask`. The broad `*/*` allow is a general fallback, not MCP-exclusive, and retains the explicit native exceptions above. Permissions do not enlarge the delegated scope: database-mutating MCP operations remain subject to the existing database-owner approval constraints, and unknown or unprovable mutations require prior consent.
 Before running a script for the first time, inspect its definition/configuration and reuse current evidence; a test/build name does not authorize database mutation, deployment, or destructive effects. Request exact authorization when such impact is necessary. Do not request approval repeatedly for an in-scope command already allowed below.
 
 ## Browser MCP authorization

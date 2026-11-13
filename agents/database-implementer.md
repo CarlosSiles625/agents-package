@@ -16,6 +16,9 @@ permissions:
   - action: subagent
     resource: "*"
     effect: deny
+  - action: "engram_*"
+    resource: "*"
+    effect: deny
   - action: skill
     resource: "*"
     effect: deny

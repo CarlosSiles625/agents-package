@@ -16,6 +16,9 @@ permissions:
   - action: subagent
     resource: "*"
     effect: deny
+  - action: "engram_*"
+    resource: "*"
+    effect: deny
   - action: skill
     resource: "*"
     effect: deny
@@ -212,7 +215,7 @@ Reason explicitly about relevant invariants, boundary states, ordering, retries,
 
 Run only assigned checks. Reuse existing evidence only if sufficient/current; record check ID, one owner, command/cwd, scope, exit status, relevant dirty code state (not only HEAD), config/dependencies/environment, result, and brief evidence reference. Relevant changes invalidate affected checks; retry failures with cause. No ritual broad suite. If verifier owns integration, state it is pending without treating that as failure of this implementation unit.
 
-Permissions do not expand task scope. MCP tools available now or added later and `execute` are allowed directly in the assigned scope, without a static allowlist or wrapper bypass, except browser tools below; the broad `*/*` fallback is not MCP-exclusive and retains the native exceptions above. Database-mutating MCP tools keep their existing approval constraints, and unknown or unprovable mutations require prior consent. Before running a script for the first time, inspect its definition/configuration and reuse current evidence; a test/build name does not authorize database mutation, deployment, or destructive effects. Request exact authorization when such impact is necessary. Do not request approval repeatedly for an in-scope command already allowed below.
+Permissions do not expand task scope. MCP tools available now or added later and `execute` are allowed directly in the assigned scope, without a static allowlist or wrapper bypass, except Engram memory tools (`engram_*`, denied: memory belongs to `memory-curator` via the parent) and browser tools below; the broad `*/*` fallback is not MCP-exclusive and retains the native exceptions above. Database-mutating MCP tools keep their existing approval constraints, and unknown or unprovable mutations require prior consent. Before running a script for the first time, inspect its definition/configuration and reuse current evidence; a test/build name does not authorize database mutation, deployment, or destructive effects. Request exact authorization when such impact is necessary. Do not request approval repeatedly for an in-scope command already allowed below.
 
 Browser MCP is the exception to that MCP grant: every current and future `playwright_*` and `chrome-devtools_*` call requires runtime `ask` per action unless a saved approval already covers it. When a browser operation may be dangerous or was not preauthorized, stop and return `NEEDS_AUTHORIZATION` before invoking it, stating exactly the tool plus arguments or code, destination, expected impact, and recovery; resume the same session after specific authorization for that exact operation, prefer a one-time approval, and treat an approval as neither scope authorization nor consent for a different call. Honor the runtime `ask`; never use `fetch`, `execute`, shell, or a wrapper to evade it. Avoid authenticated sessions, cookies, tokens, and secrets by default and never inspect, print, or publish credentials; a screenshot written outside the approved workspace needs consent for that exact path. This does not ban preexisting browser tools: request exact consent for `browser_run_code_unsafe` or equivalent RCE, downloads, writes, or unknown effects. Permissions and approvals do not expand scope or guarantee isolation. Git and database limits above remain unchanged.
 
