@@ -1,7 +1,7 @@
 ---
 description: Design and review significant database changes without editing, applying migrations, or mutating databases.
 mode: subagent
-model: openai/gpt-6.1-sol#medium
+model: claude-agent/sonnet#medium
 steps: 20
 permissions:
   - action: "*"

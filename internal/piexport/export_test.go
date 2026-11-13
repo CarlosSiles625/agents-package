@@ -274,8 +274,8 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(paths) != 19 {
-		t.Fatalf("actual source count %d, want 19", len(paths))
+	if len(paths) != 20 {
+		t.Fatalf("actual source count %d, want 20", len(paths))
 	}
 	files := map[string][]byte{}
 	for _, p := range paths {
@@ -301,10 +301,10 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 		}
 	}
 
-	// The four browser-restricted profiles use Playwright/Chrome DevTools MCP
+	// The five browser-restricted profiles use Playwright/Chrome DevTools MCP
 	// action names that have no evidence-backed Pi mapping. No new mapping is
 	// invented: each profile must reject atomically in both parser modes.
-	for _, name := range []string{"debugger.md", "debugger-fast.md", "verifier.md", "general-purpose.md"} {
+	for _, name := range []string{"debugger.md", "debugger-fast.md", "debugger-deep.md", "verifier.md", "general-purpose.md"} {
 		one := map[string][]byte{"agents/" + name: files["agents/"+name]}
 		for _, mode := range []ParserMode{ParserUpstream, ParserPatched40V1} {
 			if out, e := ConvertWithParser(one, mode); e == nil || !strings.Contains(e.Error(), name) || !strings.Contains(e.Error(), "no evidence-backed permission mapping") || !strings.Contains(e.Error(), "playwright_*") || out != nil {
@@ -320,7 +320,7 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 	unrepresentable := map[string]bool{
 		"agents/implementer.md": true, "agents/implementer-fast.md": true,
 		"agents/implementer-deep.md": true, "agents/database-implementer.md": true,
-		"agents/debugger.md": true, "agents/debugger-fast.md": true,
+		"agents/debugger.md": true, "agents/debugger-fast.md": true, "agents/debugger-deep.md": true,
 		"agents/verifier.md": true, "agents/general-purpose.md": true,
 	}
 	subset := map[string][]byte{}
@@ -344,7 +344,7 @@ func TestRepositorySnapshotFailsClosedOnPinnedParserLimitation(t *testing.T) {
 		}
 	}
 	// Derive the real parser-subset count instead of hard-coding a stale one:
-	// 19 sources minus 8 unrepresentable subagents minus the non-loadable primary.
+	// 20 sources minus 9 unrepresentable subagents minus the non-loadable primary.
 	wantLoadable := len(files) - len(unrepresentable) - 1
 	if wantLoadable != 10 {
 		t.Fatalf("derived loadable count %d, want 10", wantLoadable)

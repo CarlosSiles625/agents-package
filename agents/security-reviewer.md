@@ -1,7 +1,7 @@
 ---
 description: Statically review affected trust boundaries for concrete, reachable security vulnerabilities with low false-positive rate.
 mode: subagent
-model: openai/gpt-6.1-sol#medium
+model: claude-agent/sonnet#medium
 steps: 18
 permissions:
   - action: "*"

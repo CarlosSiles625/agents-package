@@ -259,21 +259,45 @@ contrario, en `HOME`. No recargues ni ejecutes automáticamente archivos de inic
 del usuario: abre una nueva sesión Zsh y comprueba `command -v agent-sync`. Si se
 define `ZDOTDIR`, debe ser una ruta absoluta.
 
+## Reparto de modelos por suscripción
+
+Los agentes reparten la carga entre tres suscripciones según frecuencia de uso y
+coste de error:
+
+| Proveedor | Agentes | Criterio |
+|---|---|---|
+| OpenAI (`openai/gpt-6.1-sol`) | `orchestrator` (`#low`), `debugger` (`#medium`), `implementer-deep` (`#high`) | Trabajo continuo y de muchos pasos; el límite de Codex absorbe mejor el volumen. |
+| Claude Opus 5.5 (`claude-agent/opus`) | `architect`, `debugger-deep` (`#medium`) | Baja frecuencia, error caro y resultado no verificable por tests. |
+| Claude Sonnet 5.5 (`claude-agent/sonnet`) | `reviewer`, `security-reviewer`, `database-specialist` (`#medium`) | Juicio y revisión con un modelo de otra familia que el que implementó. |
+| OpenCode Go | el resto | Tareas mecánicas, cortas y verificables. |
+
+`claude-agent/opus` y `claude-agent/sonnet` son alias: hoy resuelven a Opus 5.5 y
+Sonnet 5.5 y avanzarán solos con nuevas versiones (el catálogo `claude-agent` no
+expone un ID versionado de la 5.5). Opus es escaso en el plan Pro: fuera de sus
+dos defaults solo se usa mediante override del orchestrator (sección *Model
+escalation* de `orchestrator.md`) para `security-reviewer` en dominios críticos
+(`opus#high`) y `database-specialist` en migraciones irreversibles
+(`opus#medium`). `debugger-deep` solo se invoca tras un `ESCALATE` del `debugger`
+o dos arreglos fallidos y devuelve un plan de corrección que ejecuta un
+implementer. Si el límite semanal se agota antes de tiempo, recorta en este
+orden: `architect` a `opus#low`, escalada de seguridad a `opus#medium`, y
+desactivar la escalada de `database-specialist`.
+
 ## Permisos de navegador (OpenCode)
 
-Los perfiles `debugger`, `debugger-fast`, `verifier` y `general-purpose` admiten
+Los perfiles `debugger`, `debugger-fast`, `debugger-deep`, `verifier` y `general-purpose` admiten
 navegador **solo en OpenCode**, que es el runtime prioritario. Playwright y Chrome
 DevTools se exponen como 25 acciones MCP exactas que quedan en `ask`; en esos
-cuatro perfiles `playwright_*` y `chrome-devtools_*` se deniegan por defecto, de
+cinco perfiles `playwright_*` y `chrome-devtools_*` se deniegan por defecto, de
 modo que una acción no listada (evaluación de código/JS,
 `playwright_browser_run_code_unsafe`, detalles de red o cookies) sigue en `deny` y
 no se convierte en un `ask` implícito. Los cuatro perfiles de implementación
 (`implementer*` y `database-implementer`) conservan su default universal y piden
 `ask` para cualquier acción browser desconocida.
-`execute` está permitido en `debugger`, `debugger-fast` y `verifier`, y en `ask` en
+`execute` está permitido en `debugger`, `debugger-fast`, `debugger-deep` y `verifier`, y en `ask` en
 `general-purpose`; solo sirve para llamadas MCP exactas, y `fetch` sigue disponible
 dentro de `execute`, nunca como shell ni para eludir una tool denegada.
-`debugger`, `debugger-fast` y `verifier` mantienen su regla previa de CodeGraph en
+`debugger`, `debugger-fast`, `debugger-deep` y `verifier` mantienen su regla previa de CodeGraph en
 `allow`; los fallbacks anteriores no cambian.
 
 Un `ask` —y el prompt que muestra OpenCode— es una puerta de política, **no un
@@ -347,7 +371,7 @@ se rechaza **en ambos modos de parser** y **antes** de escribir
 destino/baseline. No se elimina ni recorta ningún agente, no se enumeran MCP de
 forma heurística y no se genera un inventario parcial.
 
-Además, los cuatro perfiles browser (`debugger`, `debugger-fast`, `verifier` y
+Además, los cinco perfiles browser (`debugger`, `debugger-fast`, `debugger-deep`, `verifier` y
 `general-purpose`) usan acciones MCP sin mapping Pi respaldado por evidencia
 (`playwright_*`, `chrome-devtools_*`); cada uno se rechaza de forma atómica en
 ambos modos. El snapshot completo ya fallaba antes por el `*: allow` de los

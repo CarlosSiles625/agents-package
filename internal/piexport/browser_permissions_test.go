@@ -73,7 +73,7 @@ var browserUnlistedActions = []string{
 }
 
 func TestBrowserRestrictedProfilesPreserveOrderedRules(t *testing.T) {
-	for _, name := range []string{"debugger.md", "debugger-fast.md", "verifier.md", "general-purpose.md"} {
+	for _, name := range []string{"debugger.md", "debugger-fast.md", "debugger-deep.md", "verifier.md", "general-purpose.md"} {
 		a := parseAgentSource(t, name)
 		for _, action := range browserListedActions() {
 			if got, ok := effectiveEffect(a, action, "*"); !ok || got != "ask" {

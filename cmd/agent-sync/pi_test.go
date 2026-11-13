@@ -275,7 +275,7 @@ func TestPiScopeOptionsAndIsolation(t *testing.T) {
 
 func TestPiParserDeclarationFullSnapshotAndPinnedState(t *testing.T) {
 	paths, err := filepath.Glob("../../agents/*.md")
-	if err != nil || len(paths) != 19 { t.Fatalf("actual source snapshot: %d files, %v", len(paths), err) }
+	if err != nil || len(paths) != 20 { t.Fatalf("actual source snapshot: %d files, %v", len(paths), err) }
 	files := map[string]string{}
 	for _, p := range paths { b, err := os.ReadFile(p); if err != nil { t.Fatal(err) }; files["agents/"+filepath.Base(p)] = string(b) }
 	// The actual snapshot carries explicit universal allows and must be
@@ -291,12 +291,12 @@ func TestPiParserDeclarationFullSnapshotAndPinnedState(t *testing.T) {
 		if _, e := os.Stat(state.Path(fullBase)); !os.IsNotExist(e) { t.Fatalf("%s wrote baseline", mode) }
 	}
 	// Parser-mode lifecycle coverage uses the subset without the four
-	// universal-allow implementers and the four browser-restricted profiles;
+	// universal-allow implementers and the five browser-restricted profiles;
 	// the latter have no evidence-backed Pi mapping and would abort the export.
 	unrepresentable := map[string]bool{
 		"agents/implementer.md": true, "agents/implementer-fast.md": true,
 		"agents/implementer-deep.md": true, "agents/database-implementer.md": true,
-		"agents/debugger.md": true, "agents/debugger-fast.md": true,
+		"agents/debugger.md": true, "agents/debugger-fast.md": true, "agents/debugger-deep.md": true,
 		"agents/verifier.md": true, "agents/general-purpose.md": true,
 	}
 	subset := map[string]string{}
@@ -316,7 +316,7 @@ func TestPiParserDeclarationFullSnapshotAndPinnedState(t *testing.T) {
 		if c,out,e := e2eRun(t,append(install,"--permission-parser",string(piexport.ParserPatched40V1))...); c != 0 || !strings.Contains(out,"DECLARATION ONLY") { t.Fatalf("patched declaration %d %s %s",c,out,e) }
 		st := e2eState(t,o.stateDir)
 		if st.PermissionParser != string(piexport.ParserPatched40V1) || st.Commit != commit { t.Fatalf("mode identity not stored: %+v",st) }
-		// 19 sources minus 8 unrepresentable subagents minus the primary.
+		// 20 sources minus 9 unrepresentable subagents minus the primary.
 		wantLoadable := len(files) - len(unrepresentable) - 1
 		if wantLoadable != 10 { t.Fatalf("derived loadable count %d, want 10", wantLoadable) }
 		loadable,e := filepath.Glob(filepath.Join(o.target,"agents","*.md")); if e != nil || len(loadable) != wantLoadable { t.Fatalf("loadable %d want %d %v",len(loadable),wantLoadable,e) }
