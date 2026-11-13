@@ -257,6 +257,7 @@ Record cwd, dirty code state (not only HEAD), config, dependencies, and environm
 Relevant edits invalidate only affected evidence; unchanged scopes need no rerun.
 On failure, establish cause, fix only in-scope regressions, and explain a targeted retry.
 Do not fix unrelated failures or perform blind edit-test loops; escalate unclear causes.
+Cap fix attempts: after at most two fix-and-recheck iterations for the same failing check (or the same unresolved error), stop editing and return `PARTIAL` or `ESCALATE` with the failing output, the cause hypotheses tried, and the current diff state; never start a third attempt on your own.
 If verifier owns integration, report it pending without repeating the check.
 Pending integration does not prevent `DONE` for a completed implementation unit.
 Never claim global PASS, unrun checks, or integration success from unit evidence.

@@ -302,6 +302,29 @@ python3 -I scripts/agent-telemetry.py --days 7 --json
 La línea base previa a los cambios de compactación y `tool_output` está en
 `telemetry/baseline-2026-11-13.txt`. Cambia una variable cada vez y compara.
 
+### Skills del orchestrator
+
+Las políticas del orchestrator que solo hacen falta en momentos concretos viven
+en skills de carga bajo demanda; el prompt conserva un resumen con las
+invariantes de seguridad y la instrucción de cargar la skill antes de actuar.
+Así el cuerpo del orchestrator pasó de ~39k a ~29k caracteres (~2,5k tokens
+menos en cada paso).
+
+| Skill | Se carga antes de |
+|---|---|
+| `orch-commit` | invocar `git-manager` (commit, push, rama, PR, merge, sincronización) |
+| `orch-parallel` | ejecutar un plan `TASKS` o lanzar subagentes en paralelo/segundo plano |
+| `orch-memory` | llamadas a Engram con identidad de sesión/proyecto o estado de ejecución |
+| `orch-escalation` | aplicar un override de `model` a un subagente |
+| `orch-db-authority` | delegar cualquier operación contra una base de datos real |
+| `orch-modes` | la primera etapa de una tarea (formato GUIDED/AUTO) |
+
+El orchestrator solo tiene permiso para `skill` `opencode` y `orch-*`. La
+política de navegador sigue inline en cada agente a propósito: es una invariante
+de seguridad y varios agentes deniegan todas las skills. Los implementers tienen
+un tope de dos iteraciones de corrección por check fallido antes de devolver
+`PARTIAL`/`ESCALATE`.
+
 ## Permisos de navegador (OpenCode)
 
 Los perfiles `debugger`, `debugger-fast`, `debugger-deep`, `verifier` y `general-purpose` admiten
