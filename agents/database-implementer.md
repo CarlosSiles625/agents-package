@@ -1,7 +1,7 @@
 ---
 description: Implement approved database changes and perform only explicitly assigned migration/application checks.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#max
+model: claude-agent/sonnet#high
 steps: 32
 permissions:
   - action: "*"

@@ -1,7 +1,7 @@
 ---
 description: Find the minimum relevant repository files, symbols, and paths using read-only structural discovery.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#low
+model: claude-agent/haiku#low
 steps: 16
 permissions:
   - action: "*"

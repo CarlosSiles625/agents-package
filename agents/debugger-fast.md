@@ -1,7 +1,7 @@
 ---
 description: Diagnose a clearly bounded software failure with a small, targeted evidence budget.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#high
+model: claude-agent/sonnet#medium
 steps: 10
 permissions:
   - action: "*"

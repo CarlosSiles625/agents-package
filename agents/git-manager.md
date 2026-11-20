@@ -1,7 +1,7 @@
 ---
 description: Own authorized Git and GitHub mutations — branches, worktrees, staging, commits, push, synchronization, tags, remotes, pull requests, and merges — without modifying source or rewriting history.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#low
+model: claude-agent/haiku#low
 steps: 14
 permissions:
   - action: "*"

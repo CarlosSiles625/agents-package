@@ -270,8 +270,9 @@ coste de error:
 |---|---|---|
 | OpenAI (`openai/gpt-6.1-sol`) | `orchestrator` (`#low`), `debugger` (`#medium`), `implementer-deep` (`#high`) | Trabajo continuo y de muchos pasos; el límite de Codex absorbe mejor el volumen. |
 | Claude Opus 5.5 (`claude-agent/opus`) | `architect`, `debugger-deep` (`#medium`) | Baja frecuencia, error caro y resultado no verificable por tests. |
-| Claude Sonnet 5.5 (`claude-agent/sonnet`) | `reviewer`, `security-reviewer`, `database-specialist` (`#medium`) | Juicio y revisión con un modelo de otra familia que el que implementó. |
-| OpenCode Go | el resto | Tareas mecánicas, cortas y verificables. |
+| Claude Sonnet 5.5 (`claude-agent/sonnet`) | `reviewer`, `security-reviewer`, `database-specialist` (`#medium`); `database-implementer` (`#high`); `edge-case-reviewer`, `implementer`, `task-divider`, `debugger-fast`, `general-purpose` (`#medium`) | Juicio, revisión y ejecución dedicada de base de datos. |
+| Claude Haiku (`claude-agent/haiku`) | `memory-curator`, `researcher`, `repo-explorer`, `git-manager` (`#low`) | Tareas de bajo coste y alcance acotado. |
+| OpenCode Go | los demás perfiles | Tareas mecánicas, cortas y verificables. |
 
 `claude-agent/opus` y `claude-agent/sonnet` son alias: hoy resuelven a Opus 5.5 y
 Sonnet 5.5 y avanzarán solos con nuevas versiones (el catálogo `claude-agent` no

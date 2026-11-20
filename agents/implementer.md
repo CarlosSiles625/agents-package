@@ -1,7 +1,7 @@
 ---
 description: Implement approved application changes with minimal edits and assigned validation only.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#high
+model: claude-agent/sonnet#medium
 steps: 24
 permissions:
   - action: "*"

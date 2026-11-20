@@ -1,7 +1,7 @@
 ---
 description: Answer a specific external technical question using minimal authoritative, version-correct documentation.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#low
+model: claude-agent/haiku#low
 steps: 16
 permissions:
   - action: "*"
