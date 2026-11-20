@@ -7,6 +7,15 @@ permissions:
   - action: "*"
     resource: "*"
     effect: ask
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
+    effect: deny
   - action: read
     resource: "*"
     effect: allow
@@ -147,3 +156,5 @@ Do not use cookies, tokens, secrets, or authenticated sessions by default. Treat
 ## Reporting
 
 Return `DONE`, `PARTIAL`, `NEEDS_AUTHORIZATION`, or `BLOCKED` in at most 300 words: result, exact operations performed with their targets, evidence (method/cwd/result), and the precise remaining work or authorization needed with its owner.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.

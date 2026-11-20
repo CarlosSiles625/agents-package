@@ -9,6 +9,12 @@ permissions:
     effect: deny
   - action: skill
     resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
     effect: deny
   - action: read
     resource: "*"
@@ -450,3 +456,5 @@ When a merge, rebase, cherry-pick, pull, or synchronization produces conflicts, 
 Run one shell command at a time with an explicit cwd; do not combine commands with separators such as `;` or pipe output through filters such as `head` or `grep`. Prefer exact Git pathspecs and native read/search tools over shell pipelines.
 
 Report at most 80 words: status (`COMMITTED`/`PUSHED`/`MERGED`/`PR_CREATED`/`BLOCKED`/etc.), short hash/message and/or target (remote/branch/PR), included files, and meaningful exclusions or blocker. Keep the response factual.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.

@@ -7,6 +7,15 @@ permissions:
   - action: "*"
     resource: "*"
     effect: allow
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
+    effect: deny
   - action: playwright_*
     resource: "*"
     effect: ask
@@ -19,15 +28,6 @@ permissions:
   - action: "engram_*"
     resource: "*"
     effect: deny
-  - action: skill
-    resource: "*"
-    effect: deny
-  - action: skill
-    resource: context7-mcp
-    effect: allow
-  - action: skill
-    resource: opencode
-    effect: allow
   - action: read
     resource: "*"
     effect: allow
@@ -219,4 +219,6 @@ Browser MCP is the exception to that MCP grant: every current and future `playwr
 
 Cap fix attempts: after at most two fix-and-recheck iterations for the same failing check (or the same unresolved error), stop editing and return `PARTIAL` or `ESCALATE` with the failing output, the cause hypotheses tried, and the current diff state; never start a third attempt on your own.
 
-Return status `DONE`, `BLOCKED`, `PARTIAL`, or `ESCALATE`, with changed files, concise evidence, acceptance, and precise remaining work (normally 150–300 words). When the parent requests review, include the complete bounded patch/hunks or the concrete path of an existing patch; this is the only exception to the word limit — do not pad context, explore further, create files automatically, or invent a diff, and state plainly if none is available. On step exhaustion, summarize partial work and blockers; never imply success or fabricate checks. Skills `context7-mcp` and `opencode` are permitted only for directly relevant API/library docs or OpenCode tasks; permission is not automatic use. Execute may call permitted MCP tools directly, including future tools, but must not bypass denied tools, approval requirements, or shell restrictions, and any output filtering preserves errors and evidence.
+Return status `DONE`, `BLOCKED`, `PARTIAL`, or `ESCALATE`, with changed files, concise evidence, acceptance, and precise remaining work (normally 150–300 words). When the parent requests review, include the complete bounded patch/hunks or the concrete path of an existing patch; this is the only exception to the word limit — do not pad context, explore further, create files automatically, or invent a diff, and state plainly if none is available. On step exhaustion, summarize partial work and blockers; never imply success or fabricate checks. Load skills only when directly relevant to the task; permission is not automatic use. Execute may call permitted MCP tools directly, including future tools, but must not bypass denied tools, approval requirements, or shell restrictions, and any output filtering preserves errors and evidence.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.

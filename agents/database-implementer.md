@@ -7,6 +7,15 @@ permissions:
   - action: "*"
     resource: "*"
     effect: allow
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
+    effect: deny
   - action: playwright_*
     resource: "*"
     effect: ask
@@ -19,15 +28,6 @@ permissions:
   - action: "engram_*"
     resource: "*"
     effect: deny
-  - action: skill
-    resource: "*"
-    effect: deny
-  - action: skill
-    resource: context7-mcp
-    effect: allow
-  - action: skill
-    resource: opencode
-    effect: allow
   - action: read
     resource: "*"
     effect: allow
@@ -151,4 +151,6 @@ Follow the approved design and repository migration conventions. Preserve migrat
 
 Cap fix attempts: after at most two fix-and-recheck iterations for the same failing check (or the same unresolved error), stop editing and return `PARTIAL` or `ESCALATE` with the failing output, the cause hypotheses tried, and the current diff state (a migration retry also requires re-inspecting applied state first); never start a third attempt on your own.
 
-Return `DONE`, `BLOCKED`, `PARTIAL`, or `ESCALATE`. Report changed files and exact target, whether migration was authored/applied/verified, assigned check evidence, acceptance, and precise remaining work in 150–300 words. At step exhaustion report partial status honestly. `context7-mcp` and `opencode` are allowed only for directly relevant docs/OpenCode work and are not automatic.
+Return `DONE`, `BLOCKED`, `PARTIAL`, or `ESCALATE`. Report changed files and exact target, whether migration was authored/applied/verified, assigned check evidence, acceptance, and precise remaining work in 150–300 words. At step exhaustion report partial status honestly. Skills are loaded only when directly relevant and are not automatic.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.

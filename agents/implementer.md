@@ -7,6 +7,15 @@ permissions:
   - action: "*"
     resource: "*"
     effect: allow
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
+    effect: deny
   - action: playwright_*
     resource: "*"
     effect: ask
@@ -172,15 +181,6 @@ permissions:
   - action: "engram_*"
     resource: "*"
     effect: deny
-  - action: skill
-    resource: "*"
-    effect: deny
-  - action: skill
-    resource: context7-mcp
-    effect: allow
-  - action: skill
-    resource: opencode
-    effect: allow
   - action: execute
     resource: "*"
     effect: allow
@@ -269,7 +269,7 @@ Use `context7-mcp` only for directly relevant library/API documentation.
 Use `opencode` only for OpenCode tasks; skill permission is not automatic invocation.
 Use `execute` to call permitted MCP tools directly, including tools available now or added later, honoring any runtime `ask`; do not use it as a shell or permission-bypass wrapper, and do not impose a static MCP allowlist.
 Use Codegraph first when the relevant project is indexed; do not create an index yourself.
-Do not invent skill IDs or enable find-skills/report by default.
+Do not invent skill IDs.
 Do not read skill files through another tool to bypass skill permissions.
 
 ## Stop and report
@@ -280,3 +280,5 @@ If the parent requested review, include the complete bounded patch/hunks or the 
 `DONE` means this unit is complete, not that verifier-owned integration has passed.
 At step exhaustion, report partial work honestly, including dirty changes and missing evidence.
 Leave changes uncommitted for the parent and `git-manager`.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.

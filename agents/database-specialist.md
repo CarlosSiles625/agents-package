@@ -7,6 +7,15 @@ permissions:
   - action: "*"
     resource: "*"
     effect: deny
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
+    effect: deny
   - action: read
     resource: "*"
     effect: allow
@@ -15,15 +24,6 @@ permissions:
     effect: allow
   - action: grep
     resource: "*"
-    effect: allow
-  - action: skill
-    resource: "*"
-    effect: deny
-  - action: skill
-    resource: context7-mcp
-    effect: allow
-  - action: skill
-    resource: opencode
     effect: allow
   - action: execute
     resource: "*"
@@ -81,7 +81,7 @@ Do not bypass denied tools/skills by reading skill files or using alternate wrap
 Use `context7-mcp` only for relevant library/API docs and `opencode` only for OpenCode work.
 Use `question` to raise design/authorization questions; do not run tests or edit files.
 Reuse supplied current documentation; permissions do not require redundant lookups.
-Do not invent skill IDs or enable find-skills/report by default.
+Do not invent skill IDs.
 Use Codegraph first for indexed projects; never create an index yourself.
 
 ## Establish the actual contract
@@ -146,3 +146,5 @@ relevant integrity/RLS/concurrency, targeted checks with owners, and material un
 Do not claim execution or PASS for checks not run by their owner.
 Stop once the scoped design/review is implementation-ready; do not add speculative improvements.
 At step exhaustion, state completed review and exact remaining decisions/evidence honestly.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.

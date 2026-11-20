@@ -319,9 +319,31 @@ menos en cada paso).
 | `orch-db-authority` | delegar cualquier operación contra una base de datos real |
 | `orch-modes` | la primera etapa de una tarea (formato GUIDED/AUTO) |
 
-El orchestrator solo tiene permiso para `skill` `opencode` y `orch-*`. La
+El orchestrator carga sin preguntar solo `opencode` y `orch-*`; el resto de
+skills queda en `ask`, de modo que las ve en su catálogo pero cargarlas él mismo
+requiere aprobación. La
 política de navegador sigue inline en cada agente a propósito: es una invariante
-de seguridad y varios agentes deniegan todas las skills. Los implementers tienen
+de seguridad que no debe depender de cargar una skill.
+
+### Skills en subagentes
+
+Todos los subagentes pueden cargar bajo demanda cualquier skill disponible
+(`skill: "*"` allow), en particular las del proyecto en curso
+(`.opencode/skills/`, `.claude/skills/`, `.agents/skills/`), sin que el
+orchestrator tenga que nombrarlas. OpenCode filtra `skill` solo por ID, no por
+ruta, así que se niegan por ID `orch-*` (política exclusiva del orchestrator) y
+`report` (publica issues fuera). Una skill solo añade instrucciones: no amplía
+los permisos de tools del perfil. La lectura directa de `*SKILL.md` sigue
+denegada; las skills se cargan con la tool `skill`.
+
+El catálogo nativo de OpenCode actúa como registry por proyecto, sin pasos de
+refresh: OpenCode descubre las skills subiendo desde el cwd hasta la raíz del
+worktree, más las globales, y a cada agente le anuncia solo las que no tiene en
+`deny`. El orchestrator compara la tarea con las descripciones de ese catálogo y,
+si alguna aplica, añade al handoff `Skills to load: <id>, <id>` (IDs exactos,
+nunca rutas ni resúmenes). El subagente las carga antes de trabajar y puede
+cargar otras relevantes por su cuenta. Una skill con
+`metadata["opencode/autoinvoke"]: "false"` no se anuncia al modelo. Los implementers tienen
 un tope de dos iteraciones de corrección por check fallido antes de devolver
 `PARTIAL`/`ESCALATE`.
 

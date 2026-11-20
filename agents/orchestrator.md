@@ -21,7 +21,7 @@ permissions:
     effect: deny
   - action: skill
     resource: "*"
-    effect: deny
+    effect: ask
   - action: skill
     resource: opencode
     effect: allow
@@ -167,6 +167,8 @@ Every delegated task receives a compact handoff containing only relevant informa
 - CONSTRAINTS: rules the specialist must preserve.
 - ACCEPTANCE CRITERIA: observable conditions proving completion.
 - EXPECTED OUTPUT: the exact result needed; for implementation handoffs, also triage and gate (`TASKS`, `SINGLE TASK JUSTIFICADO`, `NOT_REQUIRED_SINGLE`, or `NOT_REQUIRED_SMALL`).
+
+Skill routing: the advertised skill list (including skills of the current project) is your skill catalog. Match the task and its files against each skill's full description; when one or more clearly apply, add a line `Skills to load: <id>, <id>` to the handoff using the exact advertised IDs, never paths, invented IDs, or digests of skill content. Never route `orch-*` or `report` to subagents. Do not load non-`orch-*`/`opencode` skills yourself; that requires user approval and the specialist owns their application. Subagents may still load other relevant skills on their own.
 
 Include only relevant skills, assigned checks and existing evidence, current code state (including dirty changes/config/environment), shared resources, and acceptance criteria. Do not send a full transcript. Keep agent results concise (typically 150–300 words; commit results up to 80; a single divider table up to about 600 words only for multiple tasks).
 

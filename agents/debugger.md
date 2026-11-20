@@ -7,6 +7,15 @@ permissions:
   - action: "*"
     resource: "*"
     effect: deny
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
+    effect: deny
   - action: read
     resource: "*"
     effect: allow
@@ -252,3 +261,5 @@ Permissions do not expand task scope. Before running a script for the first time
 Consider code/config/dependency/schema/environment changes without treating correlation as proof. If root cause remains unclear after a focused discriminating experiment, report uncertainty and return to parent once; do not continue loops. Do not redesign auth, security boundaries, schema, RLS, transactions, or architecture; escalate a precise decision to the responsible specialist.
 
 Report expected/actual, check ID and evidence (owner, exact command/cwd or method, relevant state, result), immediate failure, root cause or `UNCONFIRMED`, smallest fix recommendation, focused verification, and material uncertainty. Normally 150–300 words; omit empty sections and preserve essential evidence.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.

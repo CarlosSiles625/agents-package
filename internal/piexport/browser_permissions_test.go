@@ -135,7 +135,9 @@ func TestImplementerBrowserRulesStayAsk(t *testing.T) {
 		for _, c := range []struct{ action, resource, want string }{
 			{"execute", "*", "allow"},
 			{"skill", "context7-mcp", "allow"},
-			{"skill", "not-installed", "deny"},
+			{"skill", "some-project-skill", "allow"},
+			{"skill", "orch-commit", "deny"},
+			{"skill", "report", "deny"},
 			{"shell", "git push origin main", "deny"},
 		} {
 			if got, ok := effectiveEffect(a, c.action, c.resource); !ok || got != c.want {

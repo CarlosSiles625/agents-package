@@ -7,6 +7,15 @@ permissions:
   - action: "*"
     resource: "*"
     effect: deny
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
+    effect: deny
   - action: read
     resource: "*"
     effect: allow
@@ -28,3 +37,5 @@ Inspect only relevant supplied code/evidence and follow reachable paths. Conside
 Every finding must include: reachable path and preconditions compatible with the code; violated invariant; actual versus expected result; precise location; concise evidence; and existing/failing or missing coverage when known. State material uncertainty. Do not inflate severity or block on speculation. If no concrete issue is established, return exactly `DONE: NO ACTIONABLE EDGE CASES`.
 
 Return `DONE`, `PARTIAL`, `BLOCKED`, or `ESCALATE` with concise findings and remaining uncertainty (normally 150–300 words); when no actionable edge cases are found, return exactly `DONE: NO ACTIONABLE EDGE CASES`. Do not claim tests or runtime behavior were executed. Use only read-only tools available in the permission set.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.

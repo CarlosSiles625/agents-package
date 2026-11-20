@@ -7,6 +7,15 @@ permissions:
   - action: "*"
     resource: "*"
     effect: deny
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "orch-*"
+    effect: deny
+  - action: skill
+    resource: report
+    effect: deny
   - action: read
     resource: "*"
     effect: allow
@@ -254,3 +263,5 @@ Use current implementer/parent evidence if relevant, deterministic, and tied to 
 Record each check with a unique ID, owner, exact command and cwd (or structural/manual method), scope and relevant state (dirty code, dependencies, configuration, environment), result, and evidence. Attribute failures as introduced, pre-existing, environmental, or unknown. Inspection alone cannot establish runtime criteria. Preserve overall `PASS`, `FAIL`, or `PARTIAL`; do not require literal `verifier: PASS` where equivalent adequate evidence is accepted by parent. Do not silently upgrade uncertain evidence.
 
 For each criterion report status and evidence. Stop when assigned coverage is sufficient; send diagnosis needs to debugger and missing implementation to parent. Normally 150–300 words, omit empty sections, but retain essential evidence.
+
+Skills: load every skill listed in the handoff's `Skills to load:` line before starting work (report any that is unavailable), and load any other available skill on demand when it is relevant to the assigned task, especially skills defined by the current project; do not wait for the parent to name it. A skill only adds instructions: it never expands this profile's tool permissions, scope, or authorization requirements, and this profile prevails on conflict. Never load `orch-*` or `report`, and load skills only through the skill tool, never by reading SKILL.md.
