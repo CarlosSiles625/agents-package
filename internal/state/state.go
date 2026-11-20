@@ -57,8 +57,6 @@ type State struct {
 	Files      map[string]FileState      `json:"files"`
 	ModelPrefs map[string]modelpref.Pref `json:"model_prefs,omitempty"`
 	Journal    *Journal                  `json:"journal,omitempty"`
-	// Empty in legacy Pi states means upstream. OpenCode never sets this field.
-	PermissionParser string             `json:"pi_permission_parser,omitempty"`
 }
 
 // New returns an empty state for repo/branch.

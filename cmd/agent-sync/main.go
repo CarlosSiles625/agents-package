@@ -20,7 +20,6 @@ import (
 	"agent-sync/internal/manifest"
 	"agent-sync/internal/modelpref"
 	"agent-sync/internal/pathsafe"
-	"agent-sync/internal/piexport"
 	"agent-sync/internal/planner"
 	"agent-sync/internal/source"
 	"agent-sync/internal/state"
@@ -46,8 +45,6 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	ctx := context.Background()
 	switch args[0] {
-	case "pi":
-		return runPi(ctx, args[1:], stdin, stdout, stderr)
 	case "install", "pull":
 		return runSync(ctx, args[0], args[1:], stdin, stdout, stderr)
 	case "status":
@@ -75,7 +72,6 @@ Usage:
   agent-sync status  [flags]   show state and the pending plan (no fetch)
   agent-sync models  <sub>     list/select/set/inherit/reset/status model choices
   agent-sync recover [flags]   roll back a pending transaction
-  agent-sync pi install|pull|status|recover --scope global|project [flags]
 
 Flags:
   --repo <path|url>   git repository (required unless already recorded)
@@ -94,8 +90,6 @@ Install-only flags:
 }
 
 type options struct {
-	pi          bool
-	permissionParser piexport.ParserMode
 	repo        string
 	branch      string
 	target      string
@@ -256,9 +250,6 @@ func runSyncOptions(ctx context.Context, name string, o *options, stdin io.Reade
 		fmt.Fprintln(stderr, "error:", err)
 		return 2
 	}
-	if o.pi {
-		if err := checkPiCompatibility(o, st); err != nil { fmt.Fprintln(stderr, "error:", err); return 2 }
-	}
 
 	repoDir := filepath.Join(o.stateDir, "repo")
 	if o.dryRun {
@@ -278,7 +269,7 @@ func runSyncOptions(ctx context.Context, name string, o *options, stdin io.Reade
 		return 1
 	}
 
-	m := syncManifest(o)
+	m := manifest.Default()
 	plan, err := buildPlan(ctx, o, m, st, src, commit)
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)
@@ -286,9 +277,6 @@ func runSyncOptions(ctx context.Context, name string, o *options, stdin io.Reade
 	}
 
 	printPlan(stdout, plan)
-	if o.pi {
-		printPiNotice(stdout, o)
-	}
 
 	if cs := plan.OfKind(planner.KindConflict); len(cs) > 0 {
 		fmt.Fprintf(stderr, "error: %d conflict(s); aborting before writing anything\n", len(cs))
@@ -299,7 +287,7 @@ func runSyncOptions(ctx context.Context, name string, o *options, stdin io.Reade
 		return 2
 	}
 	if o.dryRun {
-		if name == "install" && !o.pi {
+		if name == "install" {
 			return addPathAfterInstall(o, stdin, stdout, stderr)
 		}
 		return 0
@@ -317,13 +305,12 @@ func runSyncOptions(ctx context.Context, name string, o *options, stdin io.Reade
 
 	st.Repo = source.Redact(o.repo)
 	st.Branch = o.branch
-	if o.pi { st.PermissionParser = string(o.permissionParser) }
 	if err := apply.Apply(ctx, o.target, o.stateDir, st, plan); err != nil {
 		fmt.Fprintln(stderr, "error:", err)
 		return 1
 	}
 	fmt.Fprintf(stdout, "done: applied %d change(s) at commit %s\n", len(plan.Executable()), commit)
-	if name == "install" && !o.pi {
+	if name == "install" {
 		// The PATH step runs only after the agent files were applied cleanly.
 		// A failure here leaves the verified agent install in place and exits
 		// with a distinct code so the caller can tell the two apart.
@@ -437,30 +424,9 @@ func printPathReport(w io.Writer, rep userpath.Report) {
 }
 
 func buildPlan(ctx context.Context, o *options, m manifest.Manifest, st *state.State, src *source.Source, commit string) (planner.Plan, error) {
-	sourceManifest := m
-	if o.pi {
-		sourceManifest = manifest.Manifest{Version: manifest.CurrentVersion, Include: []string{"agents/**/*.md"}}
-	}
-	remote, err := buildRemote(ctx, src, commit, sourceManifest)
+	remote, err := buildRemote(ctx, src, commit, m)
 	if err != nil {
 		return planner.Plan{}, err
-	}
-	if o.pi {
-		if err := checkPiCompatibility(o, st); err != nil {
-			return planner.Plan{}, err
-		}
-		files := map[string][]byte{}
-		for p, r := range remote {
-			files[p] = r.Data
-		}
-		converted, err := piexport.ConvertWithParser(files, o.permissionParser)
-		if err != nil {
-			return planner.Plan{}, err
-		}
-		remote = map[string]planner.Remote{}
-		for p, data := range converted {
-			remote[p] = planner.Remote{Exists: true, Hash: state.Hash(data), Data: data}
-		}
 	}
 	local, err := buildLocal(o.target, m)
 	if err != nil {
@@ -477,20 +443,8 @@ func buildPlan(ctx context.Context, o *options, m manifest.Manifest, st *state.S
 	if err != nil {
 		return planner.Plan{}, err
 	}
-	if !o.pi {
-		if err := applyPrefs(st, &plan, remote, local); err != nil {
-			return planner.Plan{}, err
-		}
-	} else {
-		// Avoid backing up/replacing identical converted files on every pull.
-		// The common planner's historical OpenCode behavior is unchanged.
-		for i := range plan.Entries {
-			e := &plan.Entries[i]
-			if e.Kind == planner.KindWrite && e.Local == e.Remote {
-				e.Kind = planner.KindKeep
-				e.Content = nil
-			}
-		}
+	if err := applyPrefs(st, &plan, remote, local); err != nil {
+		return planner.Plan{}, err
 	}
 	plan.Commit = commit
 	return plan, nil
@@ -713,9 +667,6 @@ func runStatusOptions(ctx context.Context, o *options, stdout, stderr io.Writer)
 	fmt.Fprintf(stdout, "repo:    %s\n", source.Redact(repo))
 	fmt.Fprintf(stdout, "branch:  %s\n", branch)
 	fmt.Fprintf(stdout, "baseline commit: %s\n", st.Commit)
-	if o.pi {
-		printPiNotice(stdout, o)
-	}
 
 	if st.Journal != nil {
 		fmt.Fprintf(stdout, "pending transaction: %s (%d op(s)); run 'agent-sync recover'\n", st.Journal.ID, len(st.Journal.Ops))
@@ -734,7 +685,7 @@ func runStatusOptions(ctx context.Context, o *options, stdout, stderr io.Writer)
 		return 0
 	}
 	fmt.Fprintf(stdout, "last known remote: %s\n", remoteCommit)
-	m := syncManifest(o)
+	m := manifest.Default()
 	plan, err := buildPlan(ctx, o, m, st, src, remoteCommit)
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)
@@ -785,16 +736,6 @@ func runRecoverOptions(ctx context.Context, o *options, stdout, stderr io.Writer
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)
 		return 1
-	}
-	if o.pi {
-		if err := checkPiCompatibility(o, st); err != nil {
-			fmt.Fprintln(stderr, "error:", err)
-			return 2
-		}
-		if err := checkTargetIdentity(st, o.target); err != nil {
-			fmt.Fprintln(stderr, "error:", err)
-			return 2
-		}
 	}
 	if st.Journal == nil {
 		fmt.Fprintln(stdout, "nothing to recover")
