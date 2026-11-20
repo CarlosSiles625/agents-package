@@ -1,7 +1,7 @@
 ---
 description: Design and review significant database changes without editing, applying migrations, or mutating databases.
 mode: subagent
-model: claude-agent/sonnet#medium
+model: claude-agent/opus#medium
 steps: 20
 permissions:
   - action: "*"

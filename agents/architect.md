@@ -1,7 +1,7 @@
 ---
 description: Decide the minimum architecture required for a scoped change, respecting established contracts and project patterns.
 mode: subagent
-model: claude-agent/opus#medium
+model: openai/gpt-6.2-sol#high
 steps: 16
 permissions:
   - action: "*"
