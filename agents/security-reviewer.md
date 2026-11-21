@@ -1,7 +1,7 @@
 ---
 description: Statically review affected trust boundaries for concrete, reachable security vulnerabilities with low false-positive rate.
 mode: subagent
-model: claude-agent/sonnet#medium
+model: opencode-go/deepseek-v4.1-flash#high
 steps: 18
 permissions:
   - action: "*"

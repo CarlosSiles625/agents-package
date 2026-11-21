@@ -1,7 +1,7 @@
 ---
 description: Statically review the supplied scoped diff and immediate consumers for concrete correctness and regression defects.
 mode: subagent
-model: claude-agent/sonnet#medium
+model: opencode-go/deepseek-v4.1-flash#high
 steps: 18
 permissions:
   - action: "*"

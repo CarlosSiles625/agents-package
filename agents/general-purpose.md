@@ -1,7 +1,7 @@
 ---
 description: Execute a parent-assigned operational task no specialist owns, pausing for exact authorization before any non-preauthorized action.
 mode: subagent
-model: claude-agent/sonnet#medium
+model: opencode-go/deepseek-v4.1-flash#high
 steps: 16
 permissions:
   - action: "*"

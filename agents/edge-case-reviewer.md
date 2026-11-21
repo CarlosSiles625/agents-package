@@ -1,7 +1,7 @@
 ---
 description: Statically identify reachable, material edge-case failures in assigned code without editing or running tests.
 mode: subagent
-model: claude-agent/sonnet#medium
+model: opencode-go/deepseek-v4.1-flash#high
 steps: 20
 permissions:
   - action: "*"

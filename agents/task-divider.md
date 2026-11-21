@@ -1,7 +1,7 @@
 ---
 description: Gate and decompose an approved, sufficiently-settled plan into the smallest useful set of executable tasks, returning TASKS, SINGLE TASK JUSTIFICADO, or BLOCKED.
 mode: subagent
-model: claude-agent/sonnet#medium
+model: opencode-go/deepseek-v4.1-flash#high
 steps: 8
 permissions:
   - action: "*"
